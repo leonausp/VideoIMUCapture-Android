@@ -9,7 +9,7 @@
 | **Camera info (per clip)** | resolution, sensor orientation, factory intrinsics and distortion, lens pose relative to the gyroscope, **timestamp source** (REALTIME/UNKNOWN) | `CameraInfo` |
 | **IMU** | gyro + accel + magnetometer, uncalibrated with bias, interpolated to gyro times, at the sensor's maximum rate | `IMUData`; see [architecture](03-app-architecture.md#how-imu-samples-are-synchronised) |
 | Barometer, step counter, rotation vectors, ambient light | optional, if the phone has them | rotation vectors are OS-fused orientation, not raw |
-| GNSS | 1 Hz fixes + raw measurements, joined to the sensor clock | needs the location permission |
+| GNSS | **off in this build**: the location permission was removed (not needed for VIO). The logger code remains and would record 1 Hz fixes + raw measurements if the permission were added back. | `gnss*` streams are empty |
 | Thermal / battery | temperature, thermal status, every 5 s | useful to explain drift in long recordings |
 | **Stills** | JPEG/RAW, brackets, focus stacks, stereo pairs | for photogrammetry and 3D reconstruction; not needed for VIO |
 | `camera_census.json` | every characteristic of every camera, written at each launch | read this first on a new phone |
