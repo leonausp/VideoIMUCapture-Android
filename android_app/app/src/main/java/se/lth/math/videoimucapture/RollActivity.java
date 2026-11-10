@@ -40,7 +40,25 @@ import java.util.concurrent.Executors;
  */
 public class RollActivity extends AppCompatActivity {
 
-    private static final String[] MODE_ORDER = {"WALK", "OBJECT", "PANO", "STILLS", "OTHER"};
+    private static final String[] MODE_ORDER = {"VIDEO", "WALK", "OBJECT", "PANO", "STILLS", "OTHER"};
+
+    /**
+     * Group order for the list: the known modes first (VIDEO, then the stills-era ones), then
+     * any other mode present, alphabetically. Every mode present gets a group: a fixed list
+     * once silently hid every new VIDEO session because "VIDEO" was not in it.
+     */
+    static java.util.List<String> groupOrder(java.util.Collection<String> present) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String m : MODE_ORDER) {
+            if (present.contains(m)) {
+                out.add(m);
+            }
+        }
+        java.util.TreeSet<String> rest = new java.util.TreeSet<>(present);
+        rest.removeAll(out);
+        out.addAll(rest);
+        return out;
+    }
 
     private final ExecutorService mIo = Executors.newSingleThreadExecutor(r -> new Thread(r, "Roll"));
     private Thumbs mThumbs;
@@ -98,7 +116,11 @@ public class RollActivity extends AppCompatActivity {
             // Newest first inside each mode; the directory name carries the stamp.
             all.sort((a, b) -> b.name.compareTo(a.name));
             List<Object> rows = new ArrayList<>();
-            for (String mode : MODE_ORDER) {
+            java.util.Set<String> present = new java.util.HashSet<>();
+            for (SessionSummary s : all) {
+                present.add(s.mode);
+            }
+            for (String mode : groupOrder(present)) {
                 int n = 0;
                 for (SessionSummary s : all) {
                     if (s.mode.equals(mode)) {
@@ -313,6 +335,7 @@ public class RollActivity extends AppCompatActivity {
 
     static int modeColor(String mode) {
         switch (mode) {
+            case "VIDEO": return Color.rgb(0xe5, 0x39, 0x35);
             case "WALK": return Color.rgb(0x4c, 0xaf, 0x50);
             case "OBJECT": return Color.rgb(0xff, 0x98, 0x00);
             case "PANO": return Color.rgb(0x03, 0xa9, 0xf4);

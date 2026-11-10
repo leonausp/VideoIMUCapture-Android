@@ -40,7 +40,7 @@ public final class SessionSummary {
 
     public final File dir;
     public final String name;          // directory name
-    public final String mode;          // WALK, OBJECT, PANO, STILLS, OTHER
+    public final String mode;          // VIDEO, WALK, OBJECT, PANO, STILLS, OTHER
     public final String kind;          // "video", "stills run", "test S2", ...
     public final String when;          // "2026-09-10 20:09"
     public final long bytes;
