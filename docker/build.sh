@@ -49,6 +49,12 @@ run_args=(
   --rm
   --user "$(id -u):$(id -g)"
   -e HOME=/tmp
+  # The host UID has no passwd entry in the container, so Java's user.home is "?".
+  # Point it at a real directory, and keep ~/.android (which holds debug.keystore) in the
+  # persistent Gradle volume: otherwise every build signs with a NEW debug key and
+  # `adb install -r` over the previous build fails with a signature mismatch.
+  -e JAVA_TOOL_OPTIONS=-Duser.home=/tmp
+  -e ANDROID_USER_HOME=/gradle-home/android
   -v "$GRADLE_VOLUME:/gradle-home"
   -v "$REPO_DIR:/work"
   -w /work/android_app

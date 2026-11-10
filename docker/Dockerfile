@@ -41,7 +41,10 @@ RUN set -eux; \
     mv "${ANDROID_HOME}/cmdline-tools/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest"; \
     rm /tmp/cmdline-tools.zip; \
     yes | sdkmanager --licenses > /dev/null; \
-    sdkmanager --install "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"; \
+    # platform-tools: AGP installs it on demand otherwise, i.e. into the throw-away container
+    # on EVERY build. sdkmanager cannot pin its version; the installed one is printed below.
+    sdkmanager --install "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "platform-tools"; \
+    sdkmanager --list_installed; \
     rm -rf /root/.android
 
 # The container runs as the host user's UID/GID (so build outputs are not root-owned).
