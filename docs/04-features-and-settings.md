@@ -79,7 +79,7 @@ in your data that stabilization was off.
 
 | Setting | VIO recommendation |
 |---|---|
-| Auto Exposure Mode / Exposure Time / ISO | **Manual, about 3–8 ms**, raising ISO as needed. Auto exposure indoors picks the whole frame time: our first Pixel 6 test got **33.3 ms at ISO 711**, which blurs badly when moving. |
+| Auto Exposure Mode / Exposure Time / ISO | **Manual, about 3–8 ms**, raising ISO as needed. Auto exposure indoors picks the whole frame time: our first Pixel 6 test got **33.3 ms at ISO 711**, which blurs badly when moving. Sliders snap to standard ⅓-stop values (exposure … 4, 5, 6.25, 8 ms … max 30 ms, which keeps 30 fps; ISO … 800, 1000, 1250 … up to the phone's maximum, 11,377 on the Pixel 6). **Tap the number or the row to type an exact value.** |
 | Freeze exposure while recording (default **on**) | on: one fixed exposure per clip, consistent images. Off only if light changes a lot during the recording. |
 | Blur budget (experimental, default off) | leave off unless you test it; untested on a moving phone |
 

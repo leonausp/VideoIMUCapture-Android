@@ -758,9 +758,13 @@ class CameraSettingExposureMode extends CameraSetting {
     private List<Mode> mValidModes = new ArrayList<>();
     private final Mode DEFAULT_MODE = Mode.TOUCH_AUTO;
     private float DEFAULT_EXPOSURE_MS = 5f;
+    // Kept on purpose: an exposure longer than the frame period (33.3 ms at 30 fps) would make
+    // the sensor drop its frame rate, and VIO needs a steady 30 fps.
     private float MAX_EXPOSURE_MS =30f; // 30ms, More is not feasible given 30 fps requirement.
     private int DEFAULT_ISO =200;
-    private int MAX_ISO =2000; // Much more does not make sense
+    // No ISO cap: the slider covers the device's whole SENSOR_INFO_SENSITIVITY_RANGE (Pixel 6:
+    // 44..11377). A 2000 cap (upstream, 2020) forced a choice between dark frames and motion
+    // blur indoors at short exposures, where ~3000-5000 is typical. Steps are 1/3 stops.
     private final float EXPOSURE_RESOLUTION = 1e-2f;
     private Range<Float> mExposureTimeRange = null;
     private Range<Integer> mISORange = null;
@@ -796,7 +800,6 @@ class CameraSettingExposureMode extends CameraSetting {
             //Reduce ISO range and check default
             mISORange = cameraCharacteristics.get(
                     CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
-            mISORange = mISORange.intersect(mISORange.getLower(), MAX_ISO);
             DEFAULT_ISO = mISORange.clamp(DEFAULT_ISO);
 
             //Reduce Exposure range and check default
