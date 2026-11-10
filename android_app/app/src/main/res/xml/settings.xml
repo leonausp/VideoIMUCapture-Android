@@ -36,7 +36,7 @@
             app:key="distortion_correction"
             app:title="Enable Distortion Correction"
             app:persistent="false"
-            app:summary="Lets the phone un-warp frames before recording. Leave OFF for VIO and calibration: the recorded distortion parameters describe the raw lens, so corrected frames would be corrected twice. The mode that ran is recorded per frame." />
+            app:summary="Lets the HAL un-warp the frames before you get them. Leave OFF. The distortion_params (k1..k5) recorded in every session describe the RAW sensor, so a solve that trusts them on corrected frames corrects twice — and a HAL correction is a warp with no published functional form, which no PINHOLE or OPENCV camera in COLMAP can express. Both failure modes look like a slightly-worse-than-expected reprojection error, which is the signature this project has learned not to trust. The mode that actually ran is recorded per frame." />
 
         <ListPreference
             app:key="lens_set"
@@ -45,21 +45,21 @@
             app:defaultValue="pair"
             app:entries="@array/lens_set_desc"
             app:entryValues="@array/lens_set_values"
-            app:summary="Extra camera streams besides the video. Metric pair: JPEG/RAW stills plus main and ultrawide streams for stereo. All rear lenses: also telephotos (if any). Video only: just the video stream, stills off; recommended for VIO, and needed for zoom-based lens switching. Applies when the camera reopens." />
+            app:summary="Which physical rear cameras get a stream. &quot;Metric pair&quot; is main + ultrawide, the two with a published 18.02 mm baseline, and is how every clip in the archive was shot. &quot;All lenses&quot; adds the 3x and 5x telephotos, so one press captures the same instant from every rear camera — this device configures preview + JPEG + RAW + four physical streams at 1920x1080, seven streams in one session. The telephotos publish no pose translation, so the extra views carry no scale of their own. &quot;Video only&quot; configures nothing but the video stream (recommended for VIO): stills and stereo pairs are then disabled. Takes effect when the camera is next opened." />
 
         <SwitchPreferenceCompat
             app:key="focus_hyperfocal"
             app:title="Focus at hyperfocal (manual focus only)"
             app:persistent="true"
             app:defaultValue="false"
-            app:summary="With Auto Focus Mode = Manual, focus at this lens's hyperfocal distance: everything from about half that distance to infinity is sharp, and the lens never moves, so the focal length stays constant." />
+            app:summary="With focus mode MANUAL, park the lens at the hyperfocal distance instead of the distance slider — everything from about half of it to infinity is acceptably sharp, and the voice coil never moves again. Continuous AF hunts, and a lens that moves between frames breathes the focal length by a few percent across a session, which is the constant freeze_intrinsics asserts downstream. Computed from this lens: H = f²/(N·c) + f, circle of confusion = sensor diagonal / 1500. Unverified: nobody has yet plotted how much the focal actually moves on an AF-on walk, and if it turns out flat this is not needed." />
 
         <SwitchPreferenceCompat
             app:key="raw_pixels"
             app:title="Raw pixels for the matcher"
             app:persistent="true"
             app:defaultValue="false"
-            app:summary="Turns the phone's sharpening and noise reduction OFF, so feature detectors see real texture instead of sharpening halos. When off, the phone's defaults are left alone. The mode that ran is recorded per frame. Effect not yet measured." />
+            app:summary="Turns the HAL's edge enhancement and noise reduction OFF. Neither key has ever been set in this fork, so every frame in the archive was sharpened and denoised to human taste. Sharpening manufactures gradients — a halo sits at a fixed offset from an edge in image space, so the same physical edge looks different from two distances and the detector locks onto the halo. Denoise erases exactly the low-contrast texture a matcher needs. OFF here leaves the keys untouched rather than setting FAST, so the archive stays comparable; the mode that ran is now recorded per frame either way. Unmeasured — shoot N1/N2." />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -153,7 +153,7 @@
             app:key="blur_budget_manual"
             app:title="Manual shutter for the budget (experimental)"
             app:defaultValue="false"
-            app:summary="Lets the blur budget switch to a manual shutter shorter than 1/30 s, raising ISO to match (the auto-exposure cap stops at 1/30 s). Hands exposure back when you slow down. More noise, less blur. Experimental."/>
+            app:summary="When the budget needs a shutter shorter than 1/30 s — which is anything above a slow walk — take auto exposure off and set the shutter directly, raising ISO to match. This is the only setting on this phone that can actually meet the budget while walking; the AE cap alone stops at 1/30 s. It hands exposure back the moment you slow down. Costs noise, which the per-frame noise profile can model; blur cannot be modelled away."/>
 
         <SeekBarPreference
             app:key="hold_still_px"
@@ -162,7 +162,7 @@
             app:min="5"
             android:max="120"
             app:defaultValue="40"
-            app:summary="Show HOLD STILL when the predicted motion smear exceeds this many pixels. The live SMEAR readout shows typical values for your motion."/>
+            app:summary="Show HOLD STILL when predicted smear passes this. Separate from the budget above, because at 30 fps the budget is not reachable while walking and an alarm tied to it never goes off. The live SMEAR readout tells you where to set this: a measured S24U walk ran 24 px typical, 63 px at its worst."/>
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -193,7 +193,7 @@
             app:min="0"
             android:max="10"
             app:defaultValue="0"
-            app:summary="While recording, keep a simultaneous main + ultrawide frame pair every N seconds (metric scale from the lens baseline). 0 = off. Runs the second sensor for the whole clip and may roughen the video cadence. Not available with Video only."/>
+            app:summary="While recording, keep a simultaneous ultrawide + main frame pair at this interval — a known 18 mm baseline every metre of walk, for scale. 0 = off. Runs the second sensor for the whole clip. Measured 2026-09-10 in a dark room: pairs land and are the same frame on both lenses; the video kept its frame count but its cadence roughened (the sensor held 30 fps and every other frame was encoded). Daylight unmeasured — shoot S1 and S2 there before a real walk."/>
 
         <SeekBarPreference
             app:key="imu_batch_ms"
@@ -202,7 +202,7 @@
             app:min="0"
             android:max="200"
             app:defaultValue="0"
-            app:summary="Lets the IMU buffer samples in hardware for up to this many ms before delivering them (saves power). Timestamps are unaffected. 0 = off, recommended; keep 0 for stills runs, whose triggers read the IMU live."/>
+            app:summary="Milliseconds the gyro, accelerometer and magnetometer may buffer in their own FIFO before waking the CPU. 0 = off, which is how every clip in the archive was shot. Samples are hardware-timestamped, so batching delays delivery without moving a sample in time — for pure recording it costs nothing and saves ~470 wakeups a second per sensor while the GPU encodes. It is NOT free for the stillness shutter or the blur budget, which read the stream live: a quiet moment detected 100 ms late is a still fired 14 cm further down the walk. Leave at 0 for stills runs. Unmeasured on this device."/>
 
         <SeekBarPreference
             app:key="idle_sleep_s"
