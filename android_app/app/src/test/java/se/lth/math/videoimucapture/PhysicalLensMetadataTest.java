@@ -56,6 +56,17 @@ public class PhysicalLensMetadataTest {
     }
 
     @Test
+    public void perFrameHalFocalInVideoPixels() {
+        // Main lens, 22:41:38: per-frame fx 2853.06 array px, full 4080 crop, zoom 1, 1280 px.
+        assertEquals(895.1f, FocalLengthHelper.arrayToVideoPixels(2853.06f, 1280f / 4080f), 0.2f);
+        // Ultrawide pinned, 23:08:32: fx 1886.48 array px, crop 4031 wide, 1280 px -> ~599,
+        // matching the estimate (598.4) and the factory value scaled to the video (598.9).
+        assertEquals(599.0f, FocalLengthHelper.arrayToVideoPixels(1886.48f, 1280f / 4031f), 0.3f);
+        assertTrue(Float.isNaN(FocalLengthHelper.arrayToVideoPixels(2853f, Float.NaN)));
+        assertTrue(Float.isNaN(FocalLengthHelper.arrayToVideoPixels(0f, 0.3f)));
+    }
+
+    @Test
     public void missingOrInvalidZoomMeansOne() {
         float a = FocalLengthHelper.focalPixels(6.8f, 400f, 0.5f, null);
         assertEquals(a, FocalLengthHelper.focalPixels(6.8f, 400f, 0.5f, 0f), 1e-3f);

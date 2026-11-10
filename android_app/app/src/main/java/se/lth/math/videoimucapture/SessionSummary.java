@@ -365,7 +365,10 @@ public final class SessionSummary {
 
         public String text() {
             StringBuilder b = new StringBuilder();
-            for (Stream s : new Stream[]{frames, imu, orientation, gnss, stills, thermal}) {
+            // GNSS is no longer recorded; shown only if an older session contains fixes.
+            for (Stream s : gnss.count > 0
+                    ? new Stream[]{frames, imu, orientation, gnss, stills, thermal}
+                    : new Stream[]{frames, imu, orientation, stills, thermal}) {
                 b.append(s.line()).append('\n');
             }
             if (stereoRows > 0) {

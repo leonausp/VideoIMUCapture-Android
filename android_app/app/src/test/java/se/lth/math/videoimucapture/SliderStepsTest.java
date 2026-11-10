@@ -64,6 +64,42 @@ public class SliderStepsTest {
     }
 
     @Test
+    public void isoStepsAreThirdStopsWithinThePixel6Range() {
+        // Pixel 6 ISO range 44 .. 11377.
+        SliderSteps iso = SliderSteps.ofValues(44f, 11377f, CameraValueSteps.ISO);
+        assertEquals(44f, iso.valueAt(0), 0f);                       // device minimum
+        assertEquals(50f, iso.valueAt(1), 0f);                       // then the series
+        assertEquals(1000f, iso.valueAt(iso.indexOf(1000f)), 0f);    // ISO 1000 is a position
+        assertEquals(1250f, iso.valueAt(iso.indexOf(1000f) + 1), 0f);
+        assertEquals(11377f, iso.valueAt(iso.count() - 1), 0f);      // device maximum
+        assertEquals(10000f, iso.valueAt(iso.count() - 2), 0f);
+        assertEquals("958 snaps to 1000", 1000f, iso.valueAt(iso.indexOf(958f)), 0f);
+    }
+
+    @Test
+    public void shutterStepsHitTheUsualVioExposures() {
+        // Pixel 6 exposure range 0.026503 .. 8310.34 ms.
+        SliderSteps sh = SliderSteps.ofValues(0.026503f, 8310.343667f, CameraValueSteps.SHUTTER_MS);
+        assertEquals(0.026503f, sh.valueAt(0), 0f);
+        assertEquals(8310.343667f, sh.valueAt(sh.count() - 1), 0f);
+        for (float ms : new float[]{1f, 2f, 4f, 5f, 8f, 10f, 1000f / 60, 1000f / 30}) {
+            assertEquals(ms, sh.valueAt(sh.indexOf(ms)), 1e-4f);
+        }
+        assertEquals("4.99 snaps to 1/200 s", 5f, sh.valueAt(sh.indexOf(4.99121f)), 1e-4f);
+        // Values beyond the device maximum (10 s ... 30 s) are dropped.
+        assertEquals(8000f, sh.valueAt(sh.count() - 2), 1e-3f);
+    }
+
+    @Test
+    public void valueListIsStrictlyIncreasingAndRoundTrips() {
+        SliderSteps iso = SliderSteps.ofValues(44f, 11377f, CameraValueSteps.ISO);
+        for (int i = 1; i < iso.count(); i++) {
+            assertEquals("increasing at " + i, true, iso.valueAt(i) > iso.valueAt(i - 1));
+            assertEquals("round trip " + i, i, iso.indexOf(iso.valueAt(i)));
+        }
+    }
+
+    @Test
     public void degenerateRangeHasOnePosition() {
         SliderSteps d = new SliderSteps(1f, 1f, 0.1f);
         assertEquals(1, d.count());

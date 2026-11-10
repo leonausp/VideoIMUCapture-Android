@@ -73,6 +73,22 @@ public class FocalLengthHelper {
      * @param imageOverCrop   output pixels per active-array pixel of the crop, same axis
      * @param zoomRatio       CONTROL_ZOOM_RATIO of the result the crop came from (null = 1)
      */
+    /**
+     * Converts a focal length in active-array pixels (e.g. the HAL's per-frame
+     * LENS_INTRINSIC_CALIBRATION fx) into output-video pixels, using the same crop and zoom
+     * factor as the estimate. NaN if the factor is unknown.
+     */
+    static float arrayToVideoPixels(float arrayPx, float arrayToVideo) {
+        return (arrayToVideo > 0f && arrayPx > 0f) ? arrayPx * arrayToVideo : Float.NaN;
+    }
+
+    private float mArrayToVideo = Float.NaN;
+
+    /** Output pixels per active-array pixel (crop and zoom included) from the last estimate. */
+    public float getArrayToVideoScale() {
+        return mArrayToVideo;
+    }
+
     static float focalPixels(float imageDistanceMm, float pixelsPerMm, float imageOverCrop,
                              Float zoomRatio) {
         float zoom = (zoomRatio == null || zoomRatio <= 0f) ? 1f : zoomRatio;
@@ -120,14 +136,17 @@ public class FocalLengthHelper {
             float image_aspect = (float) mImageSize.getWidth() /
                     ((float) mImageSize.getHeight());
             float f_image_pixel;
+            float zoom = (mZoomRatio == null || mZoomRatio <= 0f) ? 1f : mZoomRatio;
             if (image_aspect >= crop_aspect) {
                 float scale = (float) mImageSize.getWidth() / ((float) mCropRegion.width());
                 f_image_pixel = focalPixels(imageDistance,
                         mPixelArraySize.getWidth() / mPhysicalSize.getWidth(), scale, mZoomRatio);
+                mArrayToVideo = scale * zoom;
             } else {
                 float scale = (float) mImageSize.getHeight() / ((float) mCropRegion.height());
                 f_image_pixel = focalPixels(imageDistance,
                         mPixelArraySize.getHeight() / mPhysicalSize.getHeight(), scale, mZoomRatio);
+                mArrayToVideo = scale * zoom;
             }
             return f_image_pixel;
         }

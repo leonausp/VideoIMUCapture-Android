@@ -35,12 +35,15 @@
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/captureResult_text"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:text="focal length : exposure time"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:lineSpacingExtra="2dp"
+        tools:text="Lens 6.81 mm  ·  f 895 px"
         android:textAppearance="@style/TextAppearance.MyApp.Overlay"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/cameraParams_text" />
 
@@ -65,14 +68,30 @@
         android:id="@+id/torch_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="48dp"
         android:contentDescription="@string/torch_description"
         android:src="@drawable/ic_torch"
-        android:layout_marginTop="88dp"
         app:backgroundTint="@color/torchOffBkg"
         app:fabSize="mini"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/capture_controls_row"
+        app:tint="@null" />
+
+    <!-- Recordings (the session browser), bottom left like a camera app's gallery. Mirrors the
+         torch on the right; marginTop 8dp centres a 40dp mini FAB on the 56dp record button. -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/gallery_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="48dp"
+        android:contentDescription="@string/gallery_description"
+        android:src="@drawable/ic_gallery"
+        app:backgroundTint="@color/torchOffBkg"
+        app:fabSize="mini"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/capture_controls_row"
         app:tint="@null" />
 
     <!-- Mode strip: all three visible at once, current one lit, one tap to change.
@@ -150,7 +169,7 @@
         android:id="@+id/capture_controls_row"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="36dp"
+        android:layout_marginBottom="16dp"
         android:gravity="center"
         android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -182,6 +201,7 @@
         </LinearLayout>
 
         <android.widget.Space
+            android:id="@+id/capture_controls_space"
             android:layout_width="56dp"
             android:layout_height="1dp" />
 

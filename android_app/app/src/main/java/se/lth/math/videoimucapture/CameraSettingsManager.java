@@ -711,11 +711,15 @@ class CameraSettingFocusMode extends CameraSetting {
 
         FloatSeekBarPreference distPref = prefScreen.findPreference(mDistancePrefKey);
         if (mMinFocusDistance != null && mValidModes.contains(FocusMode.MANUAL)) {
-            distPref.setMax(mMinFocusDistance);
-            distPref.setMin(0);
+            distPref.setRange(0f, mMinFocusDistance);
             distPref.setResolution(FOCUS_RESOLUTION);
-            distPref.setValue(DEFAULT_FOCUS_DISTANCE);
+            // The STORED distance, not the default: this ran every time the settings screen was
+            // shown, and setValue() persists -- so opening settings reset manual focus to 0
+            // (infinity). Persistent first, so the value written is the one read back.
             distPref.setPersistent(true);
+            // The stored slider value itself, not getFocusDistance(): that returns the
+            // hyperfocal distance while the hyperfocal switch is on, which must not overwrite it.
+            distPref.setNumber(mSharedPreferences.getFloat(mDistancePrefKey, DEFAULT_FOCUS_DISTANCE));
             distPref.setEnabled(getMode() == FocusMode.MANUAL);
 
             modePref.setOnPreferenceChangeListener((preference, newValue) -> {
@@ -754,9 +758,13 @@ class CameraSettingExposureMode extends CameraSetting {
     private List<Mode> mValidModes = new ArrayList<>();
     private final Mode DEFAULT_MODE = Mode.TOUCH_AUTO;
     private float DEFAULT_EXPOSURE_MS = 5f;
+    // Kept on purpose: an exposure longer than the frame period (33.3 ms at 30 fps) would make
+    // the sensor drop its frame rate, and VIO needs a steady 30 fps.
     private float MAX_EXPOSURE_MS =30f; // 30ms, More is not feasible given 30 fps requirement.
     private int DEFAULT_ISO =200;
-    private int MAX_ISO =2000; // Much more does not make sense
+    // No ISO cap: the slider covers the device's whole SENSOR_INFO_SENSITIVITY_RANGE (Pixel 6:
+    // 44..11377). A 2000 cap (upstream, 2020) forced a choice between dark frames and motion
+    // blur indoors at short exposures, where ~3000-5000 is typical. Steps are 1/3 stops.
     private final float EXPOSURE_RESOLUTION = 1e-2f;
     private Range<Float> mExposureTimeRange = null;
     private Range<Integer> mISORange = null;
@@ -792,7 +800,6 @@ class CameraSettingExposureMode extends CameraSetting {
             //Reduce ISO range and check default
             mISORange = cameraCharacteristics.get(
                     CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
-            mISORange = mISORange.intersect(mISORange.getLower(), MAX_ISO);
             DEFAULT_ISO = mISORange.clamp(DEFAULT_ISO);
 
             //Reduce Exposure range and check default
@@ -842,7 +849,9 @@ class CameraSettingExposureMode extends CameraSetting {
     }
 
     private int getISO() {
-        return mSharedPreferences.getInt(mISOPrefKey, DEFAULT_ISO);
+        int iso = mSharedPreferences.getInt(mISOPrefKey, DEFAULT_ISO);
+        // Never hand the camera a value outside its range (a broken build stored ISO 0/1).
+        return mISORange != null ? mISORange.clamp(iso) : iso;
     }
 
     private long getExposureNs() {
@@ -875,19 +884,23 @@ class CameraSettingExposureMode extends CameraSetting {
 
 
         FloatSeekBarPreference expPref = prefScreen.findPreference(mExposurePrefKey);
-        SeekBarPreference isoPref = prefScreen.findPreference(mISOPrefKey);
+        FloatSeekBarPreference isoPref = prefScreen.findPreference(mISOPrefKey);
         if (mValidModes.contains(Mode.MANUAL)) {
-            expPref.setMax(mExposureTimeRange.getUpper());
-            expPref.setMin(mExposureTimeRange.getLower());
+            expPref.setRange(mExposureTimeRange.getLower(), mExposureTimeRange.getUpper());
             expPref.setResolution(EXPOSURE_RESOLUTION);
-            expPref.setValue(getExposureMs());
+            // Slider at standard 1/3-stop shutter times (1/200 s = 5 ms ...); tap to type any.
+            expPref.setStepValues(CameraValueSteps.SHUTTER_MS);
             expPref.setPersistent(true);
+            expPref.setNumber(getExposureMs());
             expPref.setEnabled(getMode() == Mode.MANUAL);
 
-            isoPref.setMax(mISORange.getUpper());
-            isoPref.setMin(mISORange.getLower());
-            isoPref.setValue(getISO());
+            // ISO stays an int preference: integer mode BEFORE the first write, so the stored
+            // value keeps its type and getInt() reads it back.
+            isoPref.setIntegerMode(true);
+            isoPref.setRange(mISORange.getLower(), mISORange.getUpper());
+            isoPref.setStepValues(CameraValueSteps.ISO);
             isoPref.setPersistent(true);
+            isoPref.setNumber(getISO());
             isoPref.setEnabled(getMode() == Mode.MANUAL);
 
             modePref.setOnPreferenceChangeListener((preference, newValue) -> {
@@ -966,10 +979,9 @@ class CameraSettingZoomRatio extends CameraSetting {
         FloatSeekBarPreference seekbarPref = (FloatSeekBarPreference)preference;
         if(mConfigurable) {
             seekbarPref.setVisible(true);
-            seekbarPref.setMax(mZoomRange.getUpper());
-            seekbarPref.setMin(mZoomRange.getLower());
+            seekbarPref.setRange(mZoomRange.getLower(), mZoomRange.getUpper());
             seekbarPref.setResolution(ZOOM_RESOLUTION);
-            seekbarPref.setValue(getRatio());
+            seekbarPref.setNumber(getRatio());
             super.updatePreference(preference);
         } else {
             seekbarPref.setVisible(false);

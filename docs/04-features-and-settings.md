@@ -8,8 +8,8 @@
 | **Per-frame camera metadata** | timestamp, exposure time, ISO, frame duration, rolling-shutter skew, focal length, focus distance, crop region, OIS samples (if available), **applied** OIS / EIS / distortion-correction mode, white balance, noise profile, per-frame intrinsics where the phone provides them | `VideoFrameMetaData`; one per frame |
 | **Camera info (per clip)** | resolution, sensor orientation, factory intrinsics and distortion, lens pose relative to the gyroscope, **timestamp source** (REALTIME/UNKNOWN) | `CameraInfo` |
 | **IMU** | gyro + accel + magnetometer, uncalibrated with bias, interpolated to gyro times, at the sensor's maximum rate | `IMUData`; see [architecture](03-app-architecture.md#how-imu-samples-are-synchronised) |
-| Barometer, step counter, rotation vectors, ambient light | optional, if the phone has them | rotation vectors are OS-fused orientation, not raw |
-| GNSS | 1 Hz fixes + raw measurements, joined to the sensor clock | needs the location permission |
+| Barometer, rotation vectors, ambient light | optional, if the phone has them | rotation vectors are OS-fused orientation, not raw |
+| ~~GNSS~~, ~~step counter~~ | **not recorded.** Location and step counting aren't needed for VIO, so the app has no location or "Physical activity" permission and doesn't log them. The only permission it asks for is the camera. | the `gnss*` and `steps` fields stay empty |
 | Thermal / battery | temperature, thermal status, every 5 s | useful to explain drift in long recordings |
 | **Stills** | JPEG/RAW, brackets, focus stacks, stereo pairs | for photogrammetry and 3D reconstruction; not needed for VIO |
 | `camera_census.json` | every characteristic of every camera, written at each launch | read this first on a new phone |
@@ -17,10 +17,21 @@
 
 Everything stays on the phone. There is no network or analytics code.
 
-## Capture modes
+## Capture modes (hidden in this build)
 
-The mode is chosen on the main screen. For VIO you only need the **Record** (video) button; the
-camera (stills) button is for photogrammetry.
+This app is set up for VIO, so the main screen shows **only the Record (video) button**. The
+previous fork's stills features are hidden:
+- the stills button and the WALK / OBJECT / PANO strip;
+- the **TESTS** menu entry;
+- the "Stereo pair every (s)" setting.
+
+"Lenses in the session" defaults to **Video only**. **Recordings** (the gallery button
+bottom left; browse, play and check sessions on the phone) stays.
+
+The code is still there. To bring the features back, set
+`buildConfigField "boolean", "STILLS_UI", "true"` in `android_app/app/build.gradle` and rebuild.
+For reference, this is what the modes do. Video sessions are still named after the default mode
+(`walk_vid_<date>`).
 
 | Mode | Stills behaviour | Video |
 |---|---|---|
@@ -68,7 +79,7 @@ in your data that stabilization was off.
 
 | Setting | VIO recommendation |
 |---|---|
-| Auto Exposure Mode / Exposure Time / ISO | **Manual, about 3–8 ms**, raising ISO as needed. Auto exposure indoors picks the whole frame time: our first Pixel 6 test got **33.3 ms at ISO 711**, which blurs badly when moving. |
+| Auto Exposure Mode / Exposure Time / ISO | **Manual, about 3–8 ms**, raising ISO as needed. Auto exposure indoors picks the whole frame time: our first Pixel 6 test got **33.3 ms at ISO 711**, which blurs badly when moving. Sliders snap to standard ⅓-stop values (exposure … 4, 5, 6.25, 8 ms … max 30 ms, which keeps 30 fps; ISO … 800, 1000, 1250 … up to the phone's maximum, 11,377 on the Pixel 6). **Tap the number or the row to type an exact value.** |
 | Freeze exposure while recording (default **on**) | on: one fixed exposure per clip, consistent images. Off only if light changes a lot during the recording. |
 | Blur budget (experimental, default off) | leave off unless you test it; untested on a moving phone |
 

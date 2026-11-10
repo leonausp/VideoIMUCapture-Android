@@ -35,6 +35,12 @@ android {
         }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Stills, WALK/OBJECT/PANO modes, stereo pairs and the TESTS matrix are the previous
+        // fork's 3D-reconstruction features; this app is used for VIO, so their UI is hidden.
+        // The code is still there: set to true to bring the buttons, mode strip, TESTS menu and
+        // stereo-interval setting back. Roll is not affected.
+        buildConfigField "boolean", "STILLS_UI", "false"
     }
 
     // BuildConfig.APPLICATION_ID is used for the RollProvider authority (AGP 8 disables it by default).

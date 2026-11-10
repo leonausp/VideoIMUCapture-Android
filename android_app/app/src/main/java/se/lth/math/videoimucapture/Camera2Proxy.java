@@ -713,6 +713,22 @@ public class Camera2Proxy {
         return m > 0 ? m : 1f;
     }
 
+    /**
+     * The sensor's current frame rate, from SENSOR_FRAME_DURATION of the latest result, or NaN.
+     * Valid with or without a recording; the on-screen FPS used the encoder's estimate, which
+     * starts at a placeholder 15 and only moves while encoding.
+     */
+    public float getSensorFrameRate() {
+        TotalCaptureResult r = mLastResult;
+        if (r != null) {
+            Long d = r.get(CaptureResult.SENSOR_FRAME_DURATION);
+            if (d != null && d > 0) {
+                return 1e9f / d;
+            }
+        }
+        return Float.NaN;
+    }
+
     /** Most recent metered exposure time in ns, or 0. */
     public long getLastExposureNs() {
         if (mLastResult != null) {
@@ -952,7 +968,7 @@ public class Camera2Proxy {
             // as outputs at configuration time, even though they only receive frames when a
             // burst is fired.
             String lensSet = PreferenceManager
-                    .getDefaultSharedPreferences(mActivity).getString("lens_set", "pair");
+                    .getDefaultSharedPreferences(mActivity).getString("lens_set", "none");
             LensRoles.setAllLensShot("all".equals(lensSet));
             // "none" = video only: the session holds the video stream and nothing else. Every
             // extra stream is a constraint on the HAL; on the Pixel 6 the logical camera with
@@ -1170,6 +1186,25 @@ public class Camera2Proxy {
                     mFocalLengthHelper.setmZoomRatio(zoom);
                     Float focal_length_pix = mFocalLengthHelper.getFocalLengthPixel();
 
+                    // On screen: the HAL's per-frame fx (measured, follows focus breathing) in
+                    // video pixels where it describes the same camera as the crop and zoom it is
+                    // scaled with: a pinned lens, or the logical camera still on its own lens.
+                    // Otherwise (logical camera switched to another lens) the derived estimate.
+                    // [0] = value in video px, [1] = 1 if measured, 0 if estimated.
+                    final float[] readoutFocal = {focal_length_pix == null ? Float.NaN
+                            : focal_length_pix, 0f};
+                    float[] kHal = lr.get(CaptureResult.LENS_INTRINSIC_CALIBRATION);
+                    boolean sameCamera = mVideoLensId != null || (fl != null
+                            && flForEstimate != null && Math.abs(fl - flForEstimate) < 0.01f);
+                    if (kHal != null && kHal.length >= 1 && sameCamera) {
+                        float fv = FocalLengthHelper.arrayToVideoPixels(kHal[0],
+                                mFocalLengthHelper.getArrayToVideoScale());
+                        if (!Float.isNaN(fv)) {
+                            readoutFocal[0] = fv;
+                            readoutFocal[1] = 1f;
+                        }
+                    }
+
                     if (mRecordingMetadata) {
                         // est_focal_length_pix keeps the DERIVED estimate: the field is named
                         // "est" and the HAL's own value has its own field
@@ -1185,7 +1220,8 @@ public class Camera2Proxy {
                     // put 4406 px on screen against a recorded 2884, and a readout that
                     // disagrees with the file teaches the operator to distrust the file.
                     ((CameraCaptureActivity) mActivity).getmCameraCaptureFragment()
-                            .updateCaptureResultPanel(getFocalPixels(), exposureTimeNs);
+                            .updateCaptureResultPanel(fl, readoutFocal[0], readoutFocal[1] > 0f,
+                                    exposureTimeNs, lr.get(CaptureResult.SENSOR_SENSITIVITY));
                 }
 
                 @Override

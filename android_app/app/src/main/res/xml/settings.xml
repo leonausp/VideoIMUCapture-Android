@@ -30,7 +30,7 @@
             app:title="Zoom ratio"
             app:showSeekBarValue="true"
             app:persistent="false"
-            app:summary="Set to less than 1 to use wide lens."/>
+            app:summary="Set to less than 1 to use the wide lens, if available (slider fully left = widest)."/>
 
         <SwitchPreferenceCompat
             app:key="distortion_correction"
@@ -42,7 +42,7 @@
             app:key="lens_set"
             app:title="Lenses in the session"
             app:persistent="true"
-            app:defaultValue="pair"
+            app:defaultValue="none"
             app:entries="@array/lens_set_desc"
             app:entryValues="@array/lens_set_values"
             app:summary="Which physical rear cameras get a stream. &quot;Metric pair&quot; is main + ultrawide, the two with a published 18.02 mm baseline, and is how every clip in the archive was shot. &quot;All lenses&quot; adds the 3x and 5x telephotos, so one press captures the same instant from every rear camera — this device configures preview + JPEG + RAW + four physical streams at 1920x1080, seven streams in one session. The telephotos publish no pose translation, so the extra views carry no scale of their own. &quot;Video only&quot; configures nothing but the video stream (recommended for VIO): stills and stereo pairs are then disabled. Takes effect when the camera is next opened." />
@@ -121,7 +121,7 @@
             app:showSeekBarValue="true"
             app:summary="ms"/>
 
-        <SeekBarPreference
+        <se.lth.math.videoimucapture.FloatSeekBarPreference
             app:key="iso"
             app:title="ISO"
             app:showSeekBarValue="true"

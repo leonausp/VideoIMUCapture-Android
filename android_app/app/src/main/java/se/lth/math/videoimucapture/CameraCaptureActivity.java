@@ -138,7 +138,6 @@ public class CameraCaptureActivity extends AppCompatActivity {
     // this is static so it survives activity restarts
     private static TextureMovieEncoder sVideoEncoder = new TextureMovieEncoder();
     private static IMUManager mImuManager;
-    private static GnssLogger mGnssLogger;
     private static ThermalLogger mThermalLogger;
     // Whether the last volume-key press was used for exposure compensation (#28).
     private boolean mVolumeKeysConsumed = false;
@@ -165,9 +164,6 @@ public class CameraCaptureActivity extends AppCompatActivity {
     public IMUManager getmImuManager() {
         return mImuManager;
     }
-    public GnssLogger getmGnssLogger() {
-        return mGnssLogger;
-    }
     public ThermalLogger getmThermalLogger() {
         return mThermalLogger;
     }
@@ -184,13 +180,11 @@ public class CameraCaptureActivity extends AppCompatActivity {
      */
     public void startSensorStreams(RecordingWriter writer) {
         mImuManager.startRecording(writer);
-        mGnssLogger.startRecording(writer);
         mThermalLogger.startRecording(writer);
     }
 
     public void stopSensorStreams() {
         mImuManager.stopRecording();
-        mGnssLogger.stopRecording();
         mThermalLogger.stopRecording();
     }
     public CaptureModeManager getmCaptureModeManager() {
@@ -265,7 +259,6 @@ public class CameraCaptureActivity extends AppCompatActivity {
         mCameraSettingsManager = new CameraSettingsManager(this);
 
         mImuManager = new IMUManager(this);
-        mGnssLogger = new GnssLogger(this);
         mThermalLogger = new ThermalLogger(this);
         mCaptureModeManager = new CaptureModeManager(this);
         mStorageGuard = new StorageGuard(new File(getResultRoot()));
@@ -291,7 +284,17 @@ public class CameraCaptureActivity extends AppCompatActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
-            return inflater.inflate(R.layout.capture_toolbar_fragment, container, false);
+            View root = inflater.inflate(R.layout.capture_toolbar_fragment, container, false);
+            // The TESTS matrix belongs to the stills features (see BuildConfig.STILLS_UI).
+            MaterialToolbar bar = root.findViewById(R.id.topAppBar);
+            if (bar != null && bar.getMenu().findItem(R.id.tests) != null) {
+                bar.getMenu().findItem(R.id.tests).setVisible(BuildConfig.STILLS_UI);
+            }
+            // Recordings open from the gallery button next to RECORD, not the toolbar.
+            if (bar != null && bar.getMenu().findItem(R.id.roll) != null) {
+                bar.getMenu().findItem(R.id.roll).setVisible(false);
+            }
+            return root;
         }
     }
 
@@ -365,7 +368,6 @@ public class CameraCaptureActivity extends AppCompatActivity {
         }
 
         mImuManager.register();
-        mGnssLogger.register(this);
 
         // Census AFTER the camera permission exists, not in onCreate. Without the
         // permission the framework returns a REDUCED CameraCharacteristics set —
@@ -433,7 +435,6 @@ public class CameraCaptureActivity extends AppCompatActivity {
         // no more frame metadata will be saved during pause
 
         mImuManager.unregister();
-        mGnssLogger.unregister();
         Log.d(TAG, "onPause complete");
     }
 
