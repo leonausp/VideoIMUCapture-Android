@@ -27,7 +27,7 @@ Inside the container you have Kalibr, Python, the compiled protobuf module and t
 ## 1. Look at a recording
 
 ```bash
-python data2statistics.py /data/walk_vid_<date>/video_meta.pb3
+python data2statistics.py /data/vid_<date>/video_meta.pb3
 ```
 
 This prints rates and shows whether the phone supplied `intrinsic_params` / `distortion_params`.

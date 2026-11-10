@@ -30,8 +30,9 @@ bottom left; browse, play and check sessions on the phone) stays.
 
 The code is still there. To bring the features back, set
 `buildConfigField "boolean", "STILLS_UI", "true"` in `android_app/app/build.gradle` and rebuild.
-For reference, this is what the modes do. Video sessions are still named after the default mode
-(`walk_vid_<date>`).
+For reference, this is what the modes do. In this build, video sessions are named
+`vid_<date>` with mode `VIDEO`. Recordings from before this change are named `walk_vid_<date>`
+with mode `WALK`, after the hidden default mode.
 
 | Mode | Stills behaviour | Video |
 |---|---|---|

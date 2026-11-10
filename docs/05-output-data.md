@@ -7,7 +7,7 @@ On the phone, every session is a folder in the app's private external storage:
 ```
 /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/
 ├── camera_census.json                      ← all camera characteristics (rewritten at each launch)
-├── walk_vid_2026_11_10_18_05_12/           ← one recording session: <mode>_vid_<yyyy_MM_dd_HH_mm_ss>
+├── vid_2026_11_11_10_15_00/                ← one recording session: vid_<yyyy_MM_dd_HH_mm_ss>
 │   ├── video_recording.mp4                 ← the video
 │   ├── video_meta.pb3                      ← ALL metadata + sensor data (protobuf)
 │   ├── session.json                        ← what the session contains, frame accounting, warnings
@@ -15,8 +15,7 @@ On the phone, every session is a folder in the app's private external storage:
 └── …
 ```
 
-A session started with the stills button instead is named `<mode>_<date>`. Test-matrix sessions
-start with `test<cell>_`.
+Older recordings (before the VIO build) are named `walk_vid_<date>`. With the stills features enabled (`STILLS_UI`), sessions are named after their mode (`walk_vid_`, `object_`, …); test-matrix sessions start with `test<cell>_`.
 
 Copy recordings to your computer:
 
@@ -66,7 +65,7 @@ protoc --python_out=. protobuf/recording.proto     # generates recording_pb2.py
 import recording_pb2
 
 data = recording_pb2.VideoCaptureData()
-with open("walk_vid_2026_11_10_18_05_12/video_meta.pb3", "rb") as f:
+with open("vid_2026_11_11_10_15_00/video_meta.pb3", "rb") as f:
     data.ParseFromString(f.read())
 
 print(data.camera_meta)                 # intrinsics, timestamp source, …

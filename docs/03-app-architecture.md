@@ -93,7 +93,7 @@ Line counts show where the weight is. ★ marks the classes to read first for VI
 What happens when you press **Record** (`CameraCaptureFragment.startRecording()`):
 
 1. **`CaptureModeManager.beginVideoSession()`** creates the session folder, for example
-   `walk_vid_2026_11_10_18_05_12/`, and locks auto-exposure/white balance if
+   `vid_2026_11_11_10_15_00/` (`<mode>_vid_<date>` when the stills features are enabled), and locks auto-exposure/white balance if
    "Freeze exposure while recording" is on.
 2. **`RecordingWriter.startRecording("…/video_meta.pb3")`** opens the metadata file and starts the
    writer thread.

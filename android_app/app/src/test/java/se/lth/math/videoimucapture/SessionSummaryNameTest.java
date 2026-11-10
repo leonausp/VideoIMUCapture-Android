@@ -88,4 +88,15 @@ public class SessionSummaryNameTest {
         assertEquals("manual burst",
                 SessionSummary.measuredKind("manual burst", "STILLS", null, null, 5));
     }
+
+    @Test
+    public void videoSessionsOfTheVioBuildAreVideoNotWalk() {
+        String[] p = SessionSummary.parseName("vid_2026_11_11_10_15_00");
+        assertEquals("VIDEO", p[0]);
+        assertEquals("video", p[1]);
+        assertEquals("2026-11-11 10:15", p[2]);
+        assertNull(p[3]);
+        // Older sessions keep their name.
+        assertEquals("WALK", SessionSummary.parseName("walk_vid_2026_11_10_21_30_04")[0]);
+    }
 }

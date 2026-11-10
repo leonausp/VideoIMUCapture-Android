@@ -202,8 +202,8 @@ public final class SessionSummary {
     }
 
     /**
-     * Directory names are "<prefix>_yyyy_MM_dd_HH_mm_ss", prefix one of walk, walk_vid, object,
-     * object_vid, pano, pano_vid, stills, optionally led by "test<cell>_".
+     * Directory names are "<prefix>_yyyy_MM_dd_HH_mm_ss", prefix one of vid (video, VIO build),
+     * walk, walk_vid, object, object_vid, pano, pano_vid, stills, optionally led by "test<cell>_".
      *
      * @return {mode, kind, when}
      */
@@ -232,7 +232,9 @@ public final class SessionSummary {
             prefix = p.toString();
         }
         String mode;
-        if (prefix.startsWith("walk")) {
+        if (prefix.equals("vid")) {
+            mode = "VIDEO";
+        } else if (prefix.startsWith("walk")) {
             mode = "WALK";
         } else if (prefix.startsWith("object")) {
             mode = "OBJECT";
@@ -247,7 +249,7 @@ public final class SessionSummary {
         // means the video opened this session, not that this session has video: start stills
         // first and the video lands in a "walk_" directory. The roll shows what was measured
         // instead -- see measuredKind -- and this is kept only to spot the disagreement.
-        String claimed = prefix.endsWith("_vid") ? "video"
+        String claimed = (prefix.endsWith("_vid") || prefix.equals("vid")) ? "video"
                 : (mode.equals("STILLS") ? "manual burst" : "stills run");
         return new String[]{mode, claimed, when, cell};
     }
