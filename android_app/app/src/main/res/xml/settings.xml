@@ -121,7 +121,7 @@
             app:showSeekBarValue="true"
             app:summary="ms"/>
 
-        <SeekBarPreference
+        <se.lth.math.videoimucapture.FloatSeekBarPreference
             app:key="iso"
             app:title="ISO"
             app:showSeekBarValue="true"

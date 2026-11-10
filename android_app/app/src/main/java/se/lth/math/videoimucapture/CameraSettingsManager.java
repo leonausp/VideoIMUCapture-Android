@@ -714,8 +714,13 @@ class CameraSettingFocusMode extends CameraSetting {
             distPref.setMax(mMinFocusDistance);
             distPref.setMin(0);
             distPref.setResolution(FOCUS_RESOLUTION);
-            distPref.setValue(DEFAULT_FOCUS_DISTANCE);
+            // The STORED distance, not the default: this ran every time the settings screen was
+            // shown, and setValue() persists -- so opening settings reset manual focus to 0
+            // (infinity). Persistent first, so the value written is the one read back.
             distPref.setPersistent(true);
+            // The stored slider value itself, not getFocusDistance(): that returns the
+            // hyperfocal distance while the hyperfocal switch is on, which must not overwrite it.
+            distPref.setValue(mSharedPreferences.getFloat(mDistancePrefKey, DEFAULT_FOCUS_DISTANCE));
             distPref.setEnabled(getMode() == FocusMode.MANUAL);
 
             modePref.setOnPreferenceChangeListener((preference, newValue) -> {
@@ -875,19 +880,25 @@ class CameraSettingExposureMode extends CameraSetting {
 
 
         FloatSeekBarPreference expPref = prefScreen.findPreference(mExposurePrefKey);
-        SeekBarPreference isoPref = prefScreen.findPreference(mISOPrefKey);
+        FloatSeekBarPreference isoPref = prefScreen.findPreference(mISOPrefKey);
         if (mValidModes.contains(Mode.MANUAL)) {
             expPref.setMax(mExposureTimeRange.getUpper());
             expPref.setMin(mExposureTimeRange.getLower());
             expPref.setResolution(EXPOSURE_RESOLUTION);
-            expPref.setValue(getExposureMs());
+            // Slider at standard 1/3-stop shutter times (1/200 s = 5 ms ...); tap to type any.
+            expPref.setStepValues(CameraValueSteps.SHUTTER_MS);
             expPref.setPersistent(true);
+            expPref.setValue(getExposureMs());
             expPref.setEnabled(getMode() == Mode.MANUAL);
 
+            // ISO stays an int preference: integer mode BEFORE the first write, so the stored
+            // value keeps its type and getInt() reads it back.
+            isoPref.setIntegerMode(true);
             isoPref.setMax(mISORange.getUpper());
             isoPref.setMin(mISORange.getLower());
-            isoPref.setValue(getISO());
+            isoPref.setStepValues(CameraValueSteps.ISO);
             isoPref.setPersistent(true);
+            isoPref.setValue(getISO());
             isoPref.setEnabled(getMode() == Mode.MANUAL);
 
             modePref.setOnPreferenceChangeListener((preference, newValue) -> {

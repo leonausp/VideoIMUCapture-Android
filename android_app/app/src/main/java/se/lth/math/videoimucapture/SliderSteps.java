@@ -19,6 +19,8 @@ final class SliderSteps {
     final float resolution;
     private final long firstK;   // first multiple index strictly above min
     private final int interior;  // number of multiples strictly between min and max
+    // Explicit positions instead of a grid (null in grid mode): sorted, min first, max last.
+    private final float[] list;
 
     SliderSteps(float min, float max, float resolution) {
         if (!(resolution > 0f)) {
@@ -31,14 +33,57 @@ final class SliderSteps {
         long kLast = (long) Math.ceil(this.max / (double) resolution - EPS) - 1;
         this.firstK = kFirst;
         this.interior = (int) Math.max(0, kLast - kFirst + 1);
+        this.list = null;
+    }
+
+    private SliderSteps(float min, float max, float[] list) {
+        this.min = min;
+        this.max = max;
+        this.resolution = 0f;
+        this.firstK = 0;
+        this.interior = 0;
+        this.list = list;
+    }
+
+    /**
+     * Positions at chosen values -- e.g. ISO or shutter times in 1/3-stop steps -- instead of a
+     * fixed grid. Candidates outside (min, max) are dropped; min and max are always the first
+     * and last position, so the device's whole range stays reachable.
+     */
+    static SliderSteps ofValues(float min, float max, float[] candidates) {
+        float hi = Math.max(min, max);
+        float[] sorted = candidates.clone();
+        java.util.Arrays.sort(sorted);
+        java.util.ArrayList<Float> out = new java.util.ArrayList<>();
+        out.add(min);
+        for (float c : sorted) {
+            double tol = 1e-4 * Math.max(1.0, Math.abs(c));
+            if (c > min + tol && c < hi - tol && c > out.get(out.size() - 1) + tol) {
+                out.add(c);
+            }
+        }
+        if (hi > min) {
+            out.add(hi);
+        }
+        float[] arr = new float[out.size()];
+        for (int i = 0; i < arr.length; i++) {
+            arr[i] = out.get(i);
+        }
+        return new SliderSteps(min, hi, arr);
     }
 
     /** Number of slider positions (SeekBar max = count() - 1). */
     int count() {
+        if (list != null) {
+            return list.length;
+        }
         return max > min ? interior + 2 : 1;
     }
 
     float valueAt(int index) {
+        if (list != null) {
+            return list[Math.max(0, Math.min(list.length - 1, index))];
+        }
         if (index <= 0) {
             return min;
         }
@@ -50,6 +95,15 @@ final class SliderSteps {
 
     /** The position closest to value (an off-grid stored value maps to its nearest step). */
     int indexOf(float value) {
+        if (list != null) {
+            int best = 0;
+            for (int i = 1; i < list.length; i++) {
+                if (Math.abs(list[i] - value) < Math.abs(list[best] - value)) {
+                    best = i;
+                }
+            }
+            return best;
+        }
         int last = count() - 1;
         if (value <= min) {
             return 0;
