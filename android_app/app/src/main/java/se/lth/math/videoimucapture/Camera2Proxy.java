@@ -713,6 +713,22 @@ public class Camera2Proxy {
         return m > 0 ? m : 1f;
     }
 
+    /**
+     * The sensor's current frame rate, from SENSOR_FRAME_DURATION of the latest result, or NaN.
+     * Valid with or without a recording; the on-screen FPS used the encoder's estimate, which
+     * starts at a placeholder 15 and only moves while encoding.
+     */
+    public float getSensorFrameRate() {
+        TotalCaptureResult r = mLastResult;
+        if (r != null) {
+            Long d = r.get(CaptureResult.SENSOR_FRAME_DURATION);
+            if (d != null && d > 0) {
+                return 1e9f / d;
+            }
+        }
+        return Float.NaN;
+    }
+
     /** Most recent metered exposure time in ns, or 0. */
     public long getLastExposureNs() {
         if (mLastResult != null) {

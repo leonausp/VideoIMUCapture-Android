@@ -830,8 +830,16 @@ public class CameraCaptureFragment extends Fragment
         if (VERBOSE) Log.d(TAG, "ST onFrameAvailable");
         mGLView.requestRender();
 
-        final String sfps = String.format(Locale.getDefault(), "%.1f FPS",
-                getsVideoEncoder().mFrameRate);
+        // The camera's own frame rate (sensor frame duration), not the encoder's estimate:
+        // that one starts at a placeholder 15 and only updates while recording, so the screen
+        // said "@15 FPS" before every recording although the sensor ran at 30.
+        // Frames can still arrive while the fragment is detaching: no activity, no proxy.
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        float fps = proxy != null ? proxy.getSensorFrameRate() : Float.NaN;
+        if (Float.isNaN(fps)) {
+            fps = getsVideoEncoder().mFrameRate;
+        }
+        final String sfps = String.format(Locale.getDefault(), "%.1f FPS", fps);
         String previewFacts = mCameraPreviewWidth + "x" + mCameraPreviewHeight + "@" + sfps;
 
         View fragmentView = getView();

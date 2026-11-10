@@ -17,7 +17,7 @@
          sit over the record button, so choosing WALK and pressing the obvious thing below
          it started a video instead of a walk run. -->
     <string name="capture_label_stills">STILLS</string>
-    <string name="capture_label_video">VIDEO</string>
+    <string name="capture_label_video">RECORD</string>
     <string name="torch_description">Toggle torch</string>
     <string name="info_toolbar">Information</string>
     <string name="info_dialog_title">Information</string>
