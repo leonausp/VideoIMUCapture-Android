@@ -37,12 +37,12 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 
 | Setting | What it does | VIO recommendation |
 |---|---|---|
-| Camera Lens | which camera to record | the main rear camera, and keep the same one for calibration and data |
-| Maximize Sensor Area | only list resolutions that use the full sensor | on (no crop, so the full field of view) |
-| Video Size | resolution | moderate, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
-| Zoom ratio | digital zoom / crop | 1.0, and never change it after calibration |
+| Camera Lens | "Logical" (default: the phone picks the physical lens) or a specific physical camera ID | **the main camera's physical ID**, not "Logical", so the lens can never switch; see [Focal length, resolution and lens selection](#focal-length-resolution-and-lens-selection) |
+| Maximize Sensor Area | only list resolutions that use the full sensor (4:3 on most phones) | **on**: full field of view, and the scaled factory intrinsics are only right for full-sensor sizes |
+| Video Size | resolution | a moderate **4:3** size, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
+| Zoom ratio | digital zoom / crop; on a logical camera a ratio **below 1.0** typically switches to the ultrawide | **1.0**, and never change it after calibration |
 | Enable Distortion Correction | lets the phone undistort the image | **off**, so the SLAM system sees the raw lens model you calibrated |
-| Lenses in the session | which physical cameras get a stream (default "Metric pair": main + ultrawide) | the default is fine; streams only matter for stereo stills |
+| Lenses in the session | which physical cameras get a stream (default "Metric pair": main + ultrawide) | the video still comes from the main camera; check on your phone whether the extra stream limits the sizes or frame rates you can pick |
 | Focus at hyperfocal | in manual focus, set focus to the hyperfocal distance | useful with manual focus |
 | Raw pixels for the matcher | turns the phone's sharpening and noise reduction off | worth testing: sharpening halos can confuse feature matchers |
 
@@ -82,6 +82,74 @@ in your data that stabilization was off.
 | **IMU batching** | 0 (off) | **off**. Batching only delays delivery (timestamps stay correct), but there's no need for it. |
 | Camera sleep after | 60 s idle | fine; the camera wakes when you tap |
 
+## Focal length, resolution and lens selection
+
+### What is recorded
+
+| Field | Source | Changes with frame size? |
+|---|---|---|
+| `video_meta[i].focal_length_mm` | per frame, from the phone (`LENS_FOCAL_LENGTH`): the lens's **physical** focal length | **no**; it depends only on which lens is used |
+| `video_meta[i].est_focal_length_pix` | per frame, computed by the app (`FocalLengthHelper.getFocalLengthPixel()`): focal length corrected for focus distance (thin lens) × pixels per mm × (image width ÷ crop width) | **yes**; it scales with resolution, and changes slightly when focus moves |
+| `camera_meta.intrinsic_params` | factory calibration (`LENS_INTRINSIC_CALIBRATION`), rescaled by the app to the video resolution and rotated to the stored orientation (`FocalLengthHelper.getTransformedIntrinsic()`) | **yes**, scaled; see the caveat below |
+| `camera_meta.original_intrinsic_params` | the same factory values, unscaled (full-sensor coordinates) | no |
+| `video_meta[i].lens_intrinsic_calibration` | per frame, only if the phone reports intrinsics dynamically | phone-dependent |
+
+In **pixels**, the focal length is proportional to the resolution. 4080 px versus 1280 px wide is a factor of 3.19, with the same
+field of view. A Kalibr calibration is therefore valid for **one resolution**. `data2rosbag.py
+--calibration` can rescale it, but it's simplest to record calibration and data at the same
+size.
+
+### Frame size never switches lenses
+
+Which physical lens supplies the image depends only on:
+
+1. **Camera Lens.** With the default **"Logical"**, the phone decides which physical lens to use.
+   With a physical camera ID, the app pins the stream to that lens
+   (`OutputConfiguration.setPhysicalCameraId`).
+2. **Zoom ratio.** On a logical camera, a ratio below 1.0 typically switches to the ultrawide.
+   Some phones also switch lenses on their own in certain conditions, such as close focus or low
+   light.
+
+For VIO, select the **main camera's physical ID** and keep zoom at 1.0. Find the ID in
+`camera_census.json`: it's the physical camera with the main lens's focal length
+(`LENS_INFO_AVAILABLE_FOCAL_LENGTHS`). Then check every recording: `focal_length_mm` must be
+**constant**. A jump to a much smaller value, around 2 mm, means the ultrawide was used.
+
+### Use 4:3 (full-sensor) sizes
+
+Most phone sensors are 4:3.
+
+- **4:3 sizes** (e.g. 1280×960, 1920×1440, full resolution) use the whole sensor. Every size has
+  the same field of view; only the pixel count changes.
+- **16:9 sizes** (1920×1080, 4K) **crop** the top and bottom of the sensor, so the vertical field
+  of view is narrower.
+
+> **Known issue: scaled factory intrinsics are wrong for cropped sizes.**
+> `getTransformedIntrinsic()` scales fx, fy, cx and cy by `image width ÷ sensor width` (it assumes
+> the longer side is uncropped), but it **doesn't subtract the crop offset** from the principal point.
+> Example: for a 1920×1080 video from a 4:3 sensor, cy comes out at about 720 instead of about 540.
+> `est_focal_length_pix` uses the real crop region and is not affected. For full-sensor 4:3 sizes
+> the scaled values are fine (apart from small active-array offsets). Either way, treat
+> factory intrinsics as a sanity check and **calibrate with Kalibr** at your recording size.
+
+Much larger frames don't help VIO. They cost encoder load, heat and disk space, while
+feature trackers usually work at about 640–1280 px width. Pick a moderate 4:3 size.
+
+### Orientation
+
+The app is locked to portrait, and phone camera sensors are usually mounted rotated
+(`SENSOR_ORIENTATION` 90°). The stored width and height may therefore be swapped relative to the
+size you selected (e.g. 960×1280 instead of 1280×960). The app swaps fx/fy and cx/cy accordingly.
+Check `camera_meta.resolution` in your first recording.
+
+### Pixel 6 (our phone; not yet measured)
+
+Spec sheets give the main camera about **6.8 mm** physical focal length: a 50 MP sensor, normally
+used binned to 12.5 MP (4080×3072, 4:3). The ultrawide is about 114°. **Replace these numbers with the values from
+the Pixel 6's `camera_census.json` and a first recording**, including the physical camera IDs,
+timestamp source and OIS modes.
+
+
 ## Things to check once per phone
 
 1. Open the app once, then look at `camera_census.json`:
@@ -90,11 +158,13 @@ in your data that stabilization was off.
    - Can OIS be turned off? (`LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION` lists 0 = OFF.)
    - Does the phone advertise OIS data (`STATISTICS_INFO_AVAILABLE_OIS_DATA_MODES`)?
    - Are factory intrinsics, distortion and lens pose present?
+   - Which physical camera ID is the main lens? Select it under **Camera Lens**.
 2. Record about 20 s while shaking and rotating the phone, then check
    (see [05 – Output data](05-output-data.md#sanity-checks)):
    - the IMU covers the whole video;
    - the measured IMU rate;
    - there are no frame holes;
    - the applied OIS/EIS mode is 0 on all frames.
+   - `focal_length_mm` is constant (no lens switch) and `camera_meta.resolution` is what you expect.
 3. Calibrate with Kalibr ([07](07-calibration-and-tools.md)) and repeat a few times. The
    camera–IMU time offset should be stable between recordings.
