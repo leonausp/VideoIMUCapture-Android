@@ -40,9 +40,9 @@ message VideoCaptureData {
   repeated IMUData             imu = 4;         // ← the IMU stream
   repeated VideoFrameMetaData  video_meta = 5;  // ← one per video frame
   repeated EnvironmentData     environment = 6; // barometer
-  repeated StepData            steps = 7;
+  repeated StepData            steps = 7;       // not recorded (no step counter)
   repeated OrientationData     orientation = 8; // OS-fused rotation vectors
-  repeated GnssData            gnss = 9;
+  repeated GnssData            gnss = 9;        // not recorded (no location)
   repeated StillMetaData       stills = 10;
   repeated ThermalData         thermal = 11;
   repeated LightData           light = 12;
@@ -91,7 +91,7 @@ the scaled principal point for cropped (16:9) sizes are covered in
 | Video frame metadata | `VideoFrameMetaData.time_ns` = Camera2 `SENSOR_TIMESTAMP` (**start of exposure** of the first row) | camera clock |
 | MP4 presentation time | `SurfaceTexture.getTimestamp()` of the GPU frame, set by `TextureMovieEncoder`; on most phones this equals `SENSOR_TIMESTAMP`. The app pairs the two explicitly (`VideoFrameToTimestamp`, `FramePairing`) | camera clock |
 | IMU | `IMUData.time_ns` = `SensorEvent.timestamp` (of the gyro sample) | `elapsedRealtimeNanos` (boot time) |
-| GNSS, thermal, environment… | each message's time field | joined to the sensor clock |
+| thermal, environment, light… | each message's time field | joined to the sensor clock |
 
 - **If the camera's timestamp source is REALTIME,** camera and IMU timestamps are on the same clock
   and directly comparable. There is still a small, roughly constant offset from the hardware

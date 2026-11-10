@@ -8,8 +8,8 @@
 | **Per-frame camera metadata** | timestamp, exposure time, ISO, frame duration, rolling-shutter skew, focal length, focus distance, crop region, OIS samples (if available), **applied** OIS / EIS / distortion-correction mode, white balance, noise profile, per-frame intrinsics where the phone provides them | `VideoFrameMetaData`; one per frame |
 | **Camera info (per clip)** | resolution, sensor orientation, factory intrinsics and distortion, lens pose relative to the gyroscope, **timestamp source** (REALTIME/UNKNOWN) | `CameraInfo` |
 | **IMU** | gyro + accel + magnetometer, uncalibrated with bias, interpolated to gyro times, at the sensor's maximum rate | `IMUData`; see [architecture](03-app-architecture.md#how-imu-samples-are-synchronised) |
-| Barometer, step counter, rotation vectors, ambient light | optional, if the phone has them | rotation vectors are OS-fused orientation, not raw |
-| GNSS | **off in this build**: the location permission was removed (not needed for VIO). The logger code remains and would record 1 Hz fixes + raw measurements if the permission were added back. | `gnss*` streams are empty |
+| Barometer, rotation vectors, ambient light | optional, if the phone has them | rotation vectors are OS-fused orientation, not raw |
+| ~~GNSS~~, ~~step counter~~ | **not recorded.** Location and step counting aren't needed for VIO, so the app has no location or "Physical activity" permission and doesn't log them. The only permission it asks for is the camera. | the `gnss*` and `steps` fields stay empty |
 | Thermal / battery | temperature, thermal status, every 5 s | useful to explain drift in long recordings |
 | **Stills** | JPEG/RAW, brackets, focus stacks, stereo pairs | for photogrammetry and 3D reconstruction; not needed for VIO |
 | `camera_census.json` | every characteristic of every camera, written at each launch | read this first on a new phone |

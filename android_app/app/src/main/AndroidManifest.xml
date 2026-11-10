@@ -5,7 +5,6 @@
     <!-- Optional sensors: recording works without these, the corresponding streams are just absent. -->
     <!-- No location permission: GNSS is not needed for VIO. Without it GnssLogger stays
          disabled (it checks the permission) and the gnss streams in the file are empty. -->
-    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <!-- Allows registering sensor listeners above 200 Hz on API 31+ (normal permission). -->
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 

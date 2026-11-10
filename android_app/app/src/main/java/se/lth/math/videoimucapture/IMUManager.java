@@ -2,7 +2,6 @@ package se.lth.math.videoimucapture;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorAdditionalInfo;
 import android.hardware.SensorEvent;
@@ -74,8 +73,6 @@ public class IMUManager extends SensorEventCallback {
 
     // Auxiliary sensors (all optional — recording works without them).
     private Sensor mPressure;
-    private Sensor mStepCounter;
-    private Sensor mStepDetector;
     private Sensor mRotVec;
     private Sensor mGameRotVec;
     private Sensor mGeoRotVec;
@@ -112,12 +109,6 @@ public class IMUManager extends SensorEventCallback {
     private RecordingWriter mRecordingWriter = null;
     private HandlerThread mSensorThread;
     private Handler mSensorHandler;
-    // Step counter baseline: TYPE_STEP_COUNTER reports its cumulative value once at
-    // activation and then only on confirmed new steps — both can fall outside the
-    // recording window. Cache the latest continuously; write it as a baseline at
-    // record start so "steps during clip" is a diff, not a guess.
-    private volatile float mLastStepCount = -1;
-    private volatile long mLastStepCountTs = 0;
     // Latest GAME_ROTATION_VECTOR sample, for stamping stills with their pointing direction.
     // Game rotation vector rather than the magnetometer-fused one: no compass jumps from
     // local iron, and a panorama stitch only needs RELATIVE orientation between shots.
@@ -148,8 +139,8 @@ public class IMUManager extends SensorEventCallback {
         mMag = mSensorManager.getDefaultSensor(MAG_TYPE);
 
         mPressure = mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
-        mStepCounter = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
-        mStepDetector = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+        // No step counter / step detector: not needed for VIO, and they require the
+        // "Physical activity" (ACTIVITY_RECOGNITION) permission, which the app no longer asks for.
         mRotVec = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         mGameRotVec = mSensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
         mGeoRotVec = mSensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
@@ -174,15 +165,6 @@ public class IMUManager extends SensorEventCallback {
             }
         }
         return null;
-    }
-
-    private boolean hasStepPermission() {
-        // ACTIVITY_RECOGNITION became a runtime permission in API 29.
-        if (Build.VERSION.SDK_INT < 29) {
-            return true;
-        }
-        return mAppContext.checkSelfPermission(android.Manifest.permission.ACTIVITY_RECOGNITION)
-                == PackageManager.PERMISSION_GRANTED;
     }
 
     private void setSensorType() {
@@ -292,13 +274,6 @@ public class IMUManager extends SensorEventCallback {
             mAccelData.clear();
             mMagData.clear();
             mRecordingInertialData = true;
-            if (mLastStepCount >= 0) {
-                mRecordingWriter.queueData(RecordingProtos.StepData.newBuilder()
-                        .setTimeNs(mLastStepCountTs)
-                        .setCounter((long) mLastStepCount)
-                        .setDetectorEvent(false)
-                        .build());
-            }
         };
         if (mSensorHandler != null) {
             mSensorHandler.post(startFresh);
@@ -506,13 +481,6 @@ public class IMUManager extends SensorEventCallback {
             if (mRecordingInertialData) {
                 writeAuxData(event);
             }
-        } else if (event.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
-            // Cache regardless of recording state — see mLastStepCount.
-            mLastStepCount = event.values[0];
-            mLastStepCountTs = event.timestamp;
-            if (mRecordingInertialData) {
-                writeAuxData(event);
-            }
         } else if (event.sensor.getType() == Sensor.TYPE_LIGHT
                 || event.sensor == mLightCct || event.sensor == mLightIr) {
             // Light family: lux, CCT and wide-IR arrive as separate events from separate
@@ -561,20 +529,6 @@ public class IMUManager extends SensorEventCallback {
                 mRecordingWriter.queueData(RecordingProtos.EnvironmentData.newBuilder()
                         .setTimeNs(event.timestamp)
                         .setPressureHpa(event.values[0])
-                        .build());
-                break;
-            case Sensor.TYPE_STEP_COUNTER:
-                mRecordingWriter.queueData(RecordingProtos.StepData.newBuilder()
-                        .setTimeNs(event.timestamp)
-                        .setCounter((long) event.values[0])
-                        .setDetectorEvent(false)
-                        .build());
-                break;
-            case Sensor.TYPE_STEP_DETECTOR:
-                mRecordingWriter.queueData(RecordingProtos.StepData.newBuilder()
-                        .setTimeNs(event.timestamp)
-                        .setCounter(-1)
-                        .setDetectorEvent(true)
                         .build());
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
@@ -712,14 +666,6 @@ public class IMUManager extends SensorEventCallback {
         if (mPressure != null) {
             // Request fastest; barometers cap themselves at their hardware rate (~25 Hz).
             mSensorManager.registerListener(this, mPressure, SensorManager.SENSOR_DELAY_FASTEST, sensorHandler);
-        }
-        if (hasStepPermission()) {
-            if (mStepCounter != null) {
-                mSensorManager.registerListener(this, mStepCounter, SensorManager.SENSOR_DELAY_NORMAL, sensorHandler);
-            }
-            if (mStepDetector != null) {
-                mSensorManager.registerListener(this, mStepDetector, SensorManager.SENSOR_DELAY_NORMAL, sensorHandler);
-            }
         }
         if (mRotVec != null) {
             mSensorManager.registerListener(this, mRotVec, mDerivedRate, sensorHandler);

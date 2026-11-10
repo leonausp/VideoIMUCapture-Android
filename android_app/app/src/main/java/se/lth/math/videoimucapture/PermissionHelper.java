@@ -54,9 +54,6 @@ class PermissionHelper {
         ArrayList<String> permissions = new ArrayList<>();
         permissions.add(Manifest.permission.CAMERA);
         // No location: GNSS logging is not used (and not declared in the manifest).
-        if (Build.VERSION.SDK_INT >= 29) {
-            permissions.add(Manifest.permission.ACTIVITY_RECOGNITION);
-        }
         ActivityCompat.requestPermissions(activity,
                 permissions.toArray(new String[0]), RC_PERMISSION_REQUEST);
     }
