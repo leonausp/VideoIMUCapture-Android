@@ -10,12 +10,21 @@
         android:orientation="vertical"
         android:padding="8dp">
 
-        <VideoView
-            android:id="@+id/session_video"
+        <!-- The black goes on the frame, NOT on the VideoView: a VideoView is a SurfaceView, whose
+             frames are composited BEHIND the window through a hole in it, and a background on
+             the view itself is drawn over that hole. That is why playback was black even though
+             the clip decoded and played. -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="360dp"
-            android:layout_gravity="center_horizontal"
-            android:background="#000000" />
+            android:layout_height="wrap_content"
+            android:background="#000000">
+
+            <VideoView
+                android:id="@+id/session_video"
+                android:layout_width="match_parent"
+                android:layout_height="360dp"
+                android:layout_gravity="center_horizontal" />
+        </FrameLayout>
 
         <LinearLayout
             android:id="@+id/session_controls"
