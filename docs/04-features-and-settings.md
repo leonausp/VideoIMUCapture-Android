@@ -37,12 +37,12 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 
 | Setting | What it does | VIO recommendation |
 |---|---|---|
-| Camera Lens | "Logical" (default: the phone picks the physical lens) or a specific physical camera ID | **the main camera's physical ID**, not "Logical", so the lens can never switch; see [Focal length, resolution and lens selection](#focal-length-resolution-and-lens-selection) |
+| Camera Lens | "Logical" (default: the phone picks the physical lens) or a specific physical camera ID. With a physical ID the video stream is pinned to that lens, and the per-frame metadata and `CameraInfo` are read for **that lens** (`metadata_camera_id` in the file says which). At zoom 1.0 the phone may crop a wider lens to the main camera's field of view; see [Lens selection on a logical camera](#lens-selection-on-a-logical-camera). | **the main camera's physical ID**, not "Logical", so the lens can never switch |
 | Maximize Sensor Area | only list resolutions with the sensor's aspect ratio (within 1%, so standard 4:3 sizes count on a 4080×3072 sensor). Only filters the list: it never changes the stored size. | **on**: full field of view, and the scaled factory intrinsics are only right for full-sensor sizes |
 | Video Size | resolution. With a physical lens selected under Camera Lens, only sizes that lens can deliver are offered, and the size is re-checked every time the camera opens. A size the current list doesn't contain is shown as "(current, not full sensor)" and stays selected until you pick another. The main screen shows the size the camera was **opened** with; it updates when the camera reopens. | a moderate **4:3** size, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
 | Zoom ratio | digital zoom / crop; on a logical camera a ratio **below 1.0** typically switches to the ultrawide | **1.0**, and never change it after calibration |
 | Enable Distortion Correction | lets the phone undistort the image | **off**, so the SLAM system sees the raw lens model you calibrated |
-| Lenses in the session | which physical cameras get a stream (default "Metric pair": main + ultrawide) | the video still comes from the main camera; check on your phone whether the extra stream limits the sizes or frame rates you can pick |
+| Lenses in the session | which extra streams the session holds: "Metric pair" (default; main + ultrawide stereo streams, plus JPEG/RAW), "All rear lenses", or **"Video only"** (nothing but the video stream; stills and stereo pairs are then disabled). Takes effect when the camera reopens. | **Video only** for VIO: every extra stream is a constraint on the camera driver |
 | Focus at hyperfocal | in manual focus, set focus to the hyperfocal distance | useful with manual focus |
 | Raw pixels for the matcher | turns the phone's sharpening and noise reduction off | worth testing: sharpening halos can confuse feature matchers |
 
@@ -134,6 +134,23 @@ Most phone sensors are 4:3.
 
 Much larger frames don't help VIO. They cost encoder load, heat and disk space, while
 feature trackers usually work at about 640–1280 px width. Pick a moderate 4:3 size.
+
+### Lens selection on a logical camera
+
+Measured on the Pixel 6, 2026-11-10 (camera `0` = logical {main `2`, ultrawide `3`}):
+
+| Setting | What the video actually was |
+|---|---|
+| Logical, zoom 1.0 | main lens, native field of view |
+| Physical ID 3, zoom 1.0 | **ultrawide sensor, but cropped to the main lens's field of view.** The driver matches fields of view at zoom 1.0; the previous fork's author measured the same on an S24 Ultra. |
+| Physical ID 3, size not supported by the ultrawide (4080×3072) | ultrawide delivered as a 1920×1920 square and **stretched** into the video. Fixed in `fix/video-size-setting`: only sizes the lens supports are offered now. |
+| Logical, zoom 0.67 (widest), with still/stereo streams in the session | **main lens**, native field of view: the logical camera did not switch |
+
+So to get the full ultrawide field of view, use **zoom at the widest value** (slider fully left)
+and check the result. The next thing to test is Logical + widest zoom with **"Lenses in the
+session: Video only"**. Always check:
+- `focal_length_mm` and `active_physical_camera_id` in the frames;
+- the `camera.metadata_matches_video_lens` flag in `session.json` (see [05](05-output-data.md#lens-provenance)).
 
 ### Orientation
 

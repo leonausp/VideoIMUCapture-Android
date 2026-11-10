@@ -114,6 +114,40 @@ This is a human-readable summary written at stop. It contains:
 If the two halves disagree, something was requested and did not land. Check this file before
 using a session.
 
+### Lens provenance
+
+Added in `fix/physical-camera` (new protobuf fields, additive):
+
+| Where | Field | Meaning |
+|---|---|---|
+| `CameraInfo` | `requested_camera` | the Camera Lens setting: `"Logical"` or a physical id |
+| `CameraInfo` | `metadata_camera_id` | camera whose characteristics filled `CameraInfo` (intrinsics, distortion, array sizes, orientation) |
+| `CameraInfo` | `logical_camera_id`, `lens_focal_lengths` | the opened logical camera; focal length(s) of the described lens |
+| per frame | `metadata_camera_id` | whose capture result filled the row: the pinned lens's own result, or `"Logical"` |
+| per frame | `active_physical_camera_id` | which physical lens the logical camera was using (it can switch with zoom) |
+| per frame | `zoom_ratio` | `CONTROL_ZOOM_RATIO` of the result the crop region came from |
+
+When the video is pinned to a physical lens, lens-specific values (focal length, intrinsics, OIS
+samples, rolling-shutter readout, crop, focus) come **only** from that lens's result. If the lens
+doesn't report a value, the field is left empty rather than filled with the main lens's.
+`est_focal_length_pix` now includes the zoom ratio. Before this fix, a recording at zoom 0.67
+recorded 1331 px for frames whose true focal length was ~892 px.
+
+`session.json` gets a `camera` block:
+
+```json
+"camera": {
+  "requested": "3", "logical_camera_id": "0", "video_only_session": true,
+  "metadata_from": ["3"], "active_physical_lenses": ["3"],
+  "focal_length_mm_min": 2.35, "focal_length_mm_max": 2.35, "described_lens_focal_mm": 2.35,
+  "metadata_matches_video_lens": true
+}
+```
+
+`metadata_matches_video_lens` is false when:
+- a pinned lens's rows came from the logical camera; or
+- the logical camera switched lens, or used a lens other than the one its static metadata describes.
+
 ## `camera_census.json`
 
 This file holds every `CameraCharacteristics` key for every camera ID, including physical cameras
