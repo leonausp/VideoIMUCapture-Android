@@ -43,7 +43,7 @@ Without `keystore.properties`, the release APK is built unsigned and the script 
 sudo apt install adb          # once
 adb devices                   # phone needs USB debugging enabled
 adb install -r android_app/app/build/outputs/apk/debug/app-debug.apk
-adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./sessions/
+adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./data/
 ```
 
 Android deletes the app's `files/` folder when the app is uninstalled. Pull your recordings
