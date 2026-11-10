@@ -176,7 +176,10 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
         // A test-matrix clip names its own cell. Without this the cell lives only in whatever the
         // operator remembers, and a matrix whose cells cannot be told apart afterwards is not a
         // matrix.
-        String prefix = mMode.name().toLowerCase(Locale.US) + "_vid";
+        // With the stills UI hidden there are no capture modes to speak of: a video session is
+        // "vid_<date>" / mode VIDEO, not "walk_vid_<date>" / WALK after a mode nobody chose.
+        String prefix = BuildConfig.STILLS_UI
+                ? mMode.name().toLowerCase(Locale.US) + "_vid" : "vid";
         if (mTestTag != null) {
             prefix = "test" + mTestTag + "_" + prefix;
         }
@@ -191,7 +194,8 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
         // count of whatever stills run came before it and its receipt claims stills it never
         // took -- a manifest is only worth having if nothing in it is left over.
         mShots = 0;
-        mManifest = SessionReceipts.open(mActivity, dir, mMode.name(), mTestTag);
+        mManifest = SessionReceipts.open(mActivity, dir,
+                BuildConfig.STILLS_UI ? mMode.name() : "VIDEO", mTestTag);
         mManifest.noteVideoRequested();
         // A verdict left over from the previous clip would be reported against this one, and
         // "the last recording was fine" is not a statement about this recording.

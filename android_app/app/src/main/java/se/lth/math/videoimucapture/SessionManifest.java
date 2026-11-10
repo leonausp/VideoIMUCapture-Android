@@ -626,9 +626,13 @@ public final class SessionManifest {
         } else {
             sb.append("NOTHING CAPTURED");
         }
-        sb.append(pairs > 0
-                ? ", " + pairs + " stereo pairs (metric scale)"
-                : ", no stereo pair (NO METRIC SCALE)");
+        // Stereo pairs are a stills-mode feature; a plain VIDEO session gets its scale from the
+        // IMU, so "NO METRIC SCALE" would be a false alarm there.
+        if (!"VIDEO".equals(mMode)) {
+            sb.append(pairs > 0
+                    ? ", " + pairs + " stereo pairs (metric scale)"
+                    : ", no stereo pair (NO METRIC SCALE)");
+        }
         int missing = shortfall(measured);
         if (missing > 0) {
             sb.append(" — ").append(missing).append(" OF ").append(mStillsFired)
