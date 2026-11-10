@@ -1201,7 +1201,8 @@ public class Camera2Proxy {
                     // put 4406 px on screen against a recorded 2884, and a readout that
                     // disagrees with the file teaches the operator to distrust the file.
                     ((CameraCaptureActivity) mActivity).getmCameraCaptureFragment()
-                            .updateCaptureResultPanel(getFocalPixels(), exposureTimeNs);
+                            .updateCaptureResultPanel(fl, focal_length_pix, exposureTimeNs,
+                                    lr.get(CaptureResult.SENSOR_SENSITIVITY));
                 }
 
                 @Override

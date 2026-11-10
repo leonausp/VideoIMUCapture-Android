@@ -684,16 +684,29 @@ public class CameraCaptureFragment extends Fragment
     }
 
 
+    /**
+     * The live readout under the toolbar, as labelled lines:
+     *   1. which lens (focal length in mm, so main vs. ultrawide is obvious) and the focal length
+     *      in VIDEO pixels (the derived estimate, which includes crop and zoom);
+     *   2. exposure, ISO, IMU rate;
+     *   3. status, only when there is something to say (recording clock, storage, EV, blur,
+     *      heat from 40 C or when throttling, battery).
+     * It used to be one '|'-joined line ("|FL: 2794.394|Exp: ...") with the focal length in
+     * full-sensor pixels, which read as "IFL" and ran into the torch button.
+     */
     public void updateCaptureResultPanel(
-            final Float fl,
-            final Long exposureTimeNs) {
-        final String sfl = String.format(Locale.getDefault(), "FL: %.3f", fl);
-        final String sexpotime =
-                exposureTimeNs == null ?
-                        "null ms" :
-                        String.format(Locale.getDefault(), "Exp: %.2f ms",
-                                exposureTimeNs / 1000000.0);
-        final String imuHz = String.format(Locale.getDefault(),  "IMU: %.0fHz",
+            final Float focalMm,
+            final Float focalVideoPx,
+            final Long exposureTimeNs,
+            final Integer iso) {
+        final String lens = (focalMm == null ? "Lens ?" :
+                String.format(Locale.getDefault(), "Lens %.2f mm", focalMm))
+                + (focalVideoPx == null || focalVideoPx <= 0f ? "" :
+                String.format(Locale.getDefault(), "  ·  f %.0f px", focalVideoPx));
+        final String sexpotime = exposureTimeNs == null ? "Exp ?" :
+                String.format(Locale.getDefault(), "Exp %.2f ms", exposureTimeNs / 1000000.0);
+        final String siso = iso == null ? "" : String.format(Locale.getDefault(), "  ·  ISO %d", iso);
+        final String imuHz = String.format(Locale.getDefault(), "  ·  IMU %.0f Hz",
                 getmImuManager().getSensorFrequency());
         // THE CLOCK. The operator could not see how long a take had run. Refreshed with every
         // capture result, so it costs nothing extra; the battery temperature rides along because
@@ -701,29 +714,30 @@ public class CameraCaptureFragment extends Fragment
         String clock = "";
         if (mRecordingEnabled && mRecordStartMs > 0) {
             long s = (SystemClock.elapsedRealtime() - mRecordStartMs) / 1000;
-            clock = String.format(Locale.getDefault(), "REC %02d:%02d|", s / 60, s % 60);
+            clock = String.format(Locale.getDefault(), "REC %02d:%02d", s / 60, s % 60);
         }
         String heat = "";
         CameraCaptureActivity act = (CameraCaptureActivity) getActivity();
         if (act != null && act.getmThermalLogger() != null) {
             float c = act.getmThermalLogger().lastBatteryTempC();
-            if (!Float.isNaN(c)) {
-                heat = String.format(Locale.getDefault(), "%.0f°C|", c);
+            // Only when it matters: from 40 C, or whenever the OS is throttling.
+            if (!Float.isNaN(c) && c >= 40f) {
+                heat = String.format(Locale.getDefault(), "Phone %.0f °C", c);
             }
             // A temperature is a number the operator has to interpret; THROTTLING is a fact
             // they can act on. The status is what the OS itself is acting on, and until now
             // it went into the file and nowhere else -- so a walk degrading under heat looked
             // exactly like a walk that was going fine.
             if (act.getmThermalLogger().isThrottling()) {
-                heat = "THROTTLING|" + heat;
+                heat = "THROTTLING" + (Float.isNaN(c) ? "" : String.format(Locale.getDefault(), " %.0f °C", c));
             }
         }
         // The measured smear, always, when the budget is running. The alarm is the exception;
         // the number is the information, and it is what lets the operator learn where their own
         // threshold belongs instead of being nagged by a constant.
-        final String hold = (mHoldStill && mRecordingEnabled) ? "HOLD STILL|" : "";
+        final String hold = (mHoldStill && mRecordingEnabled) ? "HOLD STILL" : "";
         final String smear = (mSmearPx >= 0f && mRecordingEnabled)
-                ? String.format(Locale.getDefault(), "SMEAR %.0fpx|", mSmearPx) : "";
+                ? String.format(Locale.getDefault(), "Smear %.0f px", mSmearPx) : "";
         // Exposure compensation, but only when the operator has actually moved it (#28). At 0 it
         // is noise on a line that is already dense; away from 0 it is the reason the frames look
         // the way they do, and it must be visible without opening settings.
@@ -734,10 +748,10 @@ public class CameraCaptureFragment extends Fragment
         if (act != null && act.getmCamera2Proxy() != null) {
             float stops = act.getmCamera2Proxy().getExposureCompensationStops();
             if (Math.abs(stops) > 0.01f) {
-                ev = String.format(Locale.getDefault(), "EV %+.1f|", stops);
+                ev = String.format(Locale.getDefault(), "EV %+.1f", stops);
             }
             if (mRecordingEnabled && act.getmCamera2Proxy().periodicStereoActive()) {
-                pairs = String.format(Locale.getDefault(), "PAIRS %d|",
+                pairs = String.format(Locale.getDefault(), "Pairs %d",
                         act.getmCamera2Proxy().periodicStereoPairs());
             }
         }
@@ -751,8 +765,8 @@ public class CameraCaptureFragment extends Fragment
             StorageGuard.Status st = act.getStorageGuard().status();
             if (st != null && st.secondsLeft >= 0) {
                 room = st.secondsLeft < 60
-                        ? String.format(Locale.getDefault(), "ROOM %ds|", st.secondsLeft)
-                        : String.format(Locale.getDefault(), "ROOM %dmin|", st.secondsLeft / 60);
+                        ? String.format(Locale.getDefault(), "Storage %d s left", st.secondsLeft)
+                        : String.format(Locale.getDefault(), "Storage %d min left", st.secondsLeft / 60);
             }
         }
         // Charge, but only once it is worth the room on the line: above 20% the phone's own
@@ -766,8 +780,18 @@ public class CameraCaptureFragment extends Fragment
                 batt = BatteryGuard.readout(bs);
             }
         }
-        final String line = "|" + hold + smear + batt + room + clock + pairs + ev + sfl + "|"
-                + sexpotime + "|" + imuHz + "|" + heat;
+        StringBuilder status = new StringBuilder();
+        for (String part : new String[]{clock, hold, smear, heat, batt, room, pairs, ev}) {
+            String t = part == null ? "" : part.replace("|", "").trim();
+            if (!t.isEmpty()) {
+                if (status.length() > 0) {
+                    status.append("  ·  ");
+                }
+                status.append(t);
+            }
+        }
+        final String line = lens + "\n" + sexpotime + siso + imuHz
+                + (status.length() > 0 ? "\n" + status : "");
 
         getActivity().runOnUiThread(() -> {
             if (mCaptureResultText != null) {

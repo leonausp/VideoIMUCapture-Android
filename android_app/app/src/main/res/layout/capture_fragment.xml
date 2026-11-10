@@ -35,12 +35,15 @@
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/captureResult_text"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:text="focal length : exposure time"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:lineSpacingExtra="2dp"
+        android:text="Lens ?"
         android:textAppearance="@style/TextAppearance.MyApp.Overlay"
+        app:layout_constraintEnd_toStartOf="@+id/torch_button"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/cameraParams_text" />
 
@@ -150,7 +153,7 @@
         android:id="@+id/capture_controls_row"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="36dp"
+        android:layout_marginBottom="16dp"
         android:gravity="center"
         android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
