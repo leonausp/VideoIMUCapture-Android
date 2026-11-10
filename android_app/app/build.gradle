@@ -30,8 +30,12 @@ android {
         // "0.19" and the data has no way to tell them apart. That matters now more than it
         // ever has -- a matrix of paired cells is about to be shot, and a pair is only a
         // comparison if both halves came from the same binary.
+        // git describe, not rev-parse: a build from uncommitted code says "-dirty" instead of
+        // passing as the clean commit (an APK built from local changes once carried the plain
+        // sha of the commit below them). On a campaign tag it names the tag.
+        //   clean: 77f94c6   uncommitted: 77f94c6-dirty   tagged: campaign/2026-11-20-v1
         resValue "string", "git_sha", providers.exec {
-            commandLine 'git', 'rev-parse', '--short', 'HEAD'
+            commandLine 'git', 'describe', '--always', '--dirty', '--abbrev=7', '--match', 'campaign/*'
         }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

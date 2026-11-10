@@ -96,8 +96,9 @@ docker/build.sh release
 
 ## Which build recorded my data?
 
-At build time, the app embeds the git commit (`git_sha`), and every session's `session.json`
-records it. For a recording campaign:
+At build time, the app embeds `git describe --always --dirty --match 'campaign/*'` as `git_sha`,
+and every session's `session.json` records it: `77f94c6` for a clean commit, `77f94c6-dirty` for a
+build with uncommitted changes, or the tag name when built exactly on a `campaign/…` tag. For a recording campaign:
 
 1. Build `release` from a **clean, tagged** commit (`campaign/<date>-vN`).
 2. Archive the APK with its SHA-256 (printed by `build.sh`).
