@@ -38,8 +38,8 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 | Setting | What it does | VIO recommendation |
 |---|---|---|
 | Camera Lens | "Logical" (default: the phone picks the physical lens) or a specific physical camera ID | **the main camera's physical ID**, not "Logical", so the lens can never switch; see [Focal length, resolution and lens selection](#focal-length-resolution-and-lens-selection) |
-| Maximize Sensor Area | only list resolutions that use the full sensor (4:3 on most phones) | **on**: full field of view, and the scaled factory intrinsics are only right for full-sensor sizes |
-| Video Size | resolution | a moderate **4:3** size, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
+| Maximize Sensor Area | only list resolutions with the sensor's aspect ratio (within 1%, so standard 4:3 sizes count on a 4080×3072 sensor). Only filters the list: it never changes the stored size. | **on**: full field of view, and the scaled factory intrinsics are only right for full-sensor sizes |
+| Video Size | resolution. With a physical lens selected under Camera Lens, only sizes that lens can deliver are offered, and the size is re-checked every time the camera opens. A size the current list doesn't contain is shown as "(current, not full sensor)" and stays selected until you pick another. The main screen shows the size the camera was **opened** with; it updates when the camera reopens. | a moderate **4:3** size, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
 | Zoom ratio | digital zoom / crop; on a logical camera a ratio **below 1.0** typically switches to the ultrawide | **1.0**, and never change it after calibration |
 | Enable Distortion Correction | lets the phone undistort the image | **off**, so the SLAM system sees the raw lens model you calibrated |
 | Lenses in the session | which physical cameras get a stream (default "Metric pair": main + ultrawide) | the video still comes from the main camera; check on your phone whether the extra stream limits the sizes or frame rates you can pick |
