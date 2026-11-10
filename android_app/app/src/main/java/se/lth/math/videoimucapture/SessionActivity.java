@@ -73,11 +73,21 @@ public class SessionActivity extends AppCompatActivity {
         mStreams.setText("reading streams…");
 
         View controls = findViewById(R.id.session_controls);
+        View details = findViewById(R.id.session_details);
+        Button info = findViewById(R.id.session_info);
         if (mSession.video != null && mSession.videoMs > 0) {
             setUpPlayer(controls);
+            // Details live behind "Info": the video gets the screen until they are asked for.
+            info.setOnClickListener(v -> {
+                boolean show = details.getVisibility() != View.VISIBLE;
+                details.setVisibility(show ? View.VISIBLE : View.GONE);
+                info.setText(show ? "ⓘ Hide" : "ⓘ Info");
+            });
         } else {
-            mVideo.setVisibility(View.GONE);
+            // No video: the details are all there is, so show them and drop the player.
+            findViewById(R.id.session_video_frame).setVisibility(View.GONE);
             controls.setVisibility(View.GONE);
+            details.setVisibility(View.VISIBLE);
         }
 
         if (mSession.stills.isEmpty()) {
@@ -135,16 +145,8 @@ public class SessionActivity extends AppCompatActivity {
         mVideo.setOnPreparedListener(mp -> {
             mPrepared = true;
             mp.setLooping(false);
-            // Fit the view to the clip: a portrait 3060x4080 in a landscape box is a thin strip.
-            int vw = mp.getVideoWidth(), vh = mp.getVideoHeight();
-            if (vw > 0 && vh > 0) {
-                int w = mVideo.getWidth() > 0 ? mVideo.getWidth()
-                        : getResources().getDisplayMetrics().widthPixels;
-                int maxH = (int) (getResources().getDisplayMetrics().heightPixels * 0.55f);
-                int h = Math.min(maxH, (int) ((long) w * vh / vw));
-                mVideo.getLayoutParams().height = h;
-                mVideo.requestLayout();
-            }
+            // No manual sizing: the VideoView fills its frame and scales the clip to fit,
+            // keeping the aspect ratio (portrait or landscape), whether or not Info is open.
             mSeek.setMax(mVideo.getDuration());
             mVideo.seekTo(1);
             mPlay.setEnabled(true);

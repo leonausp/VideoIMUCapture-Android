@@ -1,9 +1,13 @@
 package se.lth.math.videoimucapture;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.OutputConfiguration;
@@ -69,6 +73,12 @@ public class CameraSettingsManager {
 
     public void updateSettings(CameraCharacteristics cameraCharacteristics) {
         if (mInitialized) {
+            // Everything else is built once per activity, but the valid video sizes depend on
+            // the lens selected under "Camera Lens", which can change while the activity lives
+            // (the settings screen is a fragment of it). Re-validate the size every time the
+            // camera is configured, so a lens switch can never keep a size the lens cannot
+            // deliver (that is what stretched the Pixel 6 ultrawide video).
+            mCameraSettings.put(Setting.VIDEO_SIZE, new CameraSettingVideoSize(cameraCharacteristics));
             return;
         }
         mCameraSettings.put(Setting.OIS,
@@ -171,6 +181,19 @@ public class CameraSettingsManager {
 
     public Boolean DistortionCorrectionEnabled() {
         return ((CameraSettingBoolean) mCameraSettings.get(Setting.DISTORTION_CORRECTION)).isOn();
+    }
+
+    /**
+     * The physical camera id selected under "Camera Lens", or null for the logical camera.
+     * Not validated against the device: the caller checks it is one of the physical ids.
+     */
+    public String getPhysicalCameraId() {
+        CameraSetting c = mCameraSettings.get(Setting.PHYSICAL_CAMERA);
+        if (!(c instanceof CameraSettingPhysicalCamera)) {
+            return null;
+        }
+        String id = ((CameraSettingPhysicalCamera) c).getId();
+        return (id == null || "Logical".equals(id)) ? null : id;
     }
 
     public Size getVideoSize() {
@@ -308,43 +331,105 @@ class CameraSettingBoolean extends CameraSetting {
 
 class CameraSettingVideoSize extends CameraSetting {
 
+    private static final String TAG = "CameraSettingVideoSize";
+    private static final String LOGICAL_ID = "Logical"; // same sentinel as CameraSettingPhysicalCamera
+
     private List<Size> mValidSizes;
     private static Size DEFAULT_VIDEO_SIZE = new Size(1280, 960);
     private final String mSizePrefKey = "video_size";
     private final String mMaxSensorPrefKey = "use_full_sensor";
     private final boolean DEFAULT_MAX_SENSOR = true;
     private Rect mArraySensorSize;
-
-
+    // Which lens the size list was built for: "Logical" or a physical camera id.
+    private String mLensId = LOGICAL_ID;
 
     public CameraSettingVideoSize(CameraCharacteristics cameraCharacteristics) {
 
         mArraySensorSize = cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
 
-        // Update Sizes
         StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics
                 .SCALER_STREAM_CONFIGURATION_MAP);
         mConfigurable = (map != null);
 
-        if (mConfigurable) {
-            mValidSizes = Arrays.asList(map.getOutputSizes(MediaRecorder.class));
-
-            // Check if valid, find closest size if not.
-            Size currentSize = getSize();
-            if (!mValidSizes.contains(currentSize)) {
-                Size newSize = CameraUtils.chooseOptimalSize(mValidSizes.toArray(new Size[0]),
-                        currentSize.getWidth(), currentSize.getHeight(), currentSize);
-                setSize(newSize);
-            }
-        }
-
-        //Set default
+        //Set defaults first, so the validity check below sees the size that will actually be used.
         if (mRestoreDefault || !mSharedPreferences.contains(mSizePrefKey)) {
             setSize(DEFAULT_VIDEO_SIZE);
         }
         if (mRestoreDefault || !mSharedPreferences.contains(mMaxSensorPrefKey)) {
             mSharedPreferences.edit().putBoolean(mMaxSensorPrefKey, DEFAULT_MAX_SENSOR).apply();
         }
+
+        if (mConfigurable) {
+            mValidSizes = new ArrayList<>(Arrays.asList(map.getOutputSizes(MediaRecorder.class)));
+            restrictToSelectedPhysicalLens(cameraCharacteristics);
+
+            // The camera (or the selected lens) cannot produce the stored size at all: this is the
+            // one case where the size has to change without the user picking it. Say so.
+            Size currentSize = getSize();
+            if (!mValidSizes.contains(currentSize)) {
+                int idx = VideoSizeRules.closest(toArray(mValidSizes),
+                        currentSize.getWidth(), currentSize.getHeight());
+                if (idx >= 0) {
+                    Size newSize = mValidSizes.get(idx);
+                    Log.w(TAG, "video size " + currentSize + " is not supported by lens "
+                            + mLensId + "; using " + newSize);
+                    setSize(newSize);
+                }
+            }
+        }
+    }
+
+    /**
+     * When a physical lens is selected, the video stream is bound to that lens, so only sizes it
+     * can actually deliver are valid. A size the logical camera offers but the lens does not is
+     * NOT rejected by the HAL: on the Pixel 6 the ultrawide delivered a 1920x1920 stream for a
+     * 4080x3072 request, and the GL path then stretched it into the encoder's 4080x3072 frame.
+     * The aspect check uses the selected lens's own active array.
+     */
+    private void restrictToSelectedPhysicalLens(CameraCharacteristics logical) {
+        String id = mSharedPreferences.getString("camera_id", LOGICAL_ID);
+        if (LOGICAL_ID.equals(id) || Build.VERSION.SDK_INT < 28 || mActivity == null) {
+            return;
+        }
+        if (!logical.getPhysicalCameraIds().contains(id)) {
+            return;
+        }
+        try {
+            CameraManager manager =
+                    (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+            CameraCharacteristics physical = manager.getCameraCharacteristics(id);
+            StreamConfigurationMap pmap =
+                    physical.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            Size[] lensSizes = pmap == null ? null : pmap.getOutputSizes(SurfaceTexture.class);
+            if (lensSizes == null || lensSizes.length == 0) {
+                Log.w(TAG, "physical camera " + id + " lists no SurfaceTexture sizes; keeping the logical list");
+                return;
+            }
+            List<Size> both = new ArrayList<>(mValidSizes);
+            both.retainAll(Arrays.asList(lensSizes));
+            if (both.isEmpty()) {
+                Log.w(TAG, "no video size shared by the logical camera and physical " + id
+                        + "; keeping the logical list");
+                return;
+            }
+            mValidSizes = both;
+            Rect lensArray = physical.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+            if (lensArray != null) {
+                mArraySensorSize = lensArray;
+            }
+            mLensId = id;
+            Log.i(TAG, "video sizes restricted to physical camera " + id + ": " + mValidSizes);
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            Log.w(TAG, "could not read physical camera " + id + ": " + e);
+        }
+    }
+
+    private static int[][] toArray(List<Size> sizes) {
+        int[][] out = new int[sizes.size()][];
+        for (int i = 0; i < sizes.size(); i++) {
+            out[i] = new int[]{sizes.get(i).getWidth(), sizes.get(i).getHeight()};
+        }
+        return out;
     }
 
     public Size getSize() {
@@ -361,7 +446,8 @@ class CameraSettingVideoSize extends CameraSetting {
 
     private List<Size> getSensorSizes() {
         return mValidSizes.stream()
-                .filter(s -> s.getWidth() == s.getHeight() * mArraySensorSize.width() / mArraySensorSize.height())
+                .filter(s -> VideoSizeRules.usesFullSensor(s.getWidth(), s.getHeight(),
+                        mArraySensorSize.width(), mArraySensorSize.height()))
                 .collect(Collectors.toList());
     }
 
@@ -383,30 +469,32 @@ class CameraSettingVideoSize extends CameraSetting {
         });
     }
 
+    /**
+     * Rebuilds the list WITHOUT changing the stored size. Showing the settings screen or ticking
+     * "Maximize Sensor Area" used to pick the "closest" listed size and persist it, so the video
+     * size changed (to 4080x3072 on the Pixel 6) without anyone choosing it. Now, if the current
+     * size is not in the filtered list, it is shown at the top, marked, and stays selected until
+     * the user picks another.
+     */
     private void updatePreferenceList(ListPreference listPreference, boolean useSensorAspectRatio) {
-        List<Size> validSizes = useSensorAspectRatio ? getSensorSizes() : mValidSizes;
-
-        if (validSizes.isEmpty()) {
-            listPreference.setEnabled(false);
-            return;
+        List<Size> listed = new ArrayList<>(useSensorAspectRatio ? getSensorSizes() : mValidSizes);
+        List<String> entries = new ArrayList<>();
+        for (Size s : listed) {
+            entries.add(s.toString());
         }
 
-        String[] stringSizes = validSizes.stream().map(Object::toString).toArray(String[]::new);
-        int defaultIndex = validSizes.indexOf(getSize());
-
-        // The previous choice was from the full list, this size is not present in the sensor aspect ratio list.
-        if (defaultIndex == -1) {
-            Size closestSize = CameraUtils.chooseOptimalSize(
-                    validSizes.toArray(new Size[0]),
-                    getSize().getWidth(),
-                    getSize().getHeight(),
-                    new Size(mArraySensorSize.width(), mArraySensorSize.height()));
-            defaultIndex = validSizes.indexOf(closestSize);
+        Size current = getSize();
+        int currentIndex = listed.indexOf(current);
+        if (currentIndex == -1) {
+            listed.add(0, current);
+            entries.add(0, current + " (current, not full sensor)");
+            currentIndex = 0;
         }
 
-        listPreference.setEntryValues(stringSizes);
-        listPreference.setEntries(stringSizes);
-        listPreference.setValueIndex(defaultIndex);
+        String[] values = listed.stream().map(Object::toString).toArray(String[]::new);
+        listPreference.setEntryValues(values);
+        listPreference.setEntries(entries.toArray(new String[0]));
+        listPreference.setValueIndex(currentIndex); // re-stores the current size: no change
         listPreference.setEnabled(true);
     }
 }

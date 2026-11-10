@@ -37,12 +37,12 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 
 | Setting | What it does | VIO recommendation |
 |---|---|---|
-| Camera Lens | "Logical" (default: the phone picks the physical lens) or a specific physical camera ID | **the main camera's physical ID**, not "Logical", so the lens can never switch; see [Focal length, resolution and lens selection](#focal-length-resolution-and-lens-selection) |
-| Maximize Sensor Area | only list resolutions that use the full sensor (4:3 on most phones) | **on**: full field of view, and the scaled factory intrinsics are only right for full-sensor sizes |
-| Video Size | resolution | a moderate **4:3** size, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
-| Zoom ratio | digital zoom / crop; on a logical camera a ratio **below 1.0** typically switches to the ultrawide | **1.0**, and never change it after calibration |
+| Camera Lens | "Logical" (default: the phone picks the physical lens) or a specific physical camera ID. With a physical ID the video stream is pinned to that lens, and the per-frame metadata and `CameraInfo` are read for **that lens** (`metadata_camera_id` in the file says which). At zoom 1.0 the phone may crop a wider lens to the main camera's field of view; see [Lens selection on a logical camera](#lens-selection-on-a-logical-camera). | **the main camera's physical ID**, not "Logical", so the lens can never switch |
+| Maximize Sensor Area | only list resolutions with the sensor's aspect ratio (within 1%, so standard 4:3 sizes count on a 4080×3072 sensor). Only filters the list: it never changes the stored size. | **on**: full field of view, and the scaled factory intrinsics are only right for full-sensor sizes |
+| Video Size | resolution. With a physical lens selected under Camera Lens, only sizes that lens can deliver are offered, and the size is re-checked every time the camera opens. A size the current list doesn't contain is shown as "(current, not full sensor)" and stays selected until you pick another. The main screen shows the size the camera was **opened** with; it updates when the camera reopens. | a moderate **4:3** size, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
+| Zoom ratio | zoom / crop. Slider steps are round values (…, 0.9, **1.0**, 1.1, …) plus the exact minimum and maximum. **Fully left** = the widest zoom (0.67 on the Pixel 6), which gives the full ultrawide field of view with Camera Lens = ultrawide. | **1.0** for the main lens; **fully left** for the ultrawide. Never change it after calibration. |
 | Enable Distortion Correction | lets the phone undistort the image | **off**, so the SLAM system sees the raw lens model you calibrated |
-| Lenses in the session | which physical cameras get a stream (default "Metric pair": main + ultrawide) | the video still comes from the main camera; check on your phone whether the extra stream limits the sizes or frame rates you can pick |
+| Lenses in the session | which extra streams the session holds: "Metric pair" (default; main + ultrawide stereo streams, plus JPEG/RAW), "All rear lenses", or **"Video only"** (nothing but the video stream; stills and stereo pairs are then disabled). Takes effect when the camera reopens. | **Video only** for VIO: every extra stream is a constraint on the camera driver |
 | Focus at hyperfocal | in manual focus, set focus to the hyperfocal distance | useful with manual focus |
 | Raw pixels for the matcher | turns the phone's sharpening and noise reduction off | worth testing: sharpening halos can confuse feature matchers |
 
@@ -51,7 +51,7 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 | Setting | What it does | VIO recommendation |
 |---|---|---|
 | **Enable OIS** | optical image stabilization (the lens physically moves) | **off** if your phone allows it. OIS changes the effective intrinsics frame by frame. |
-| **Enable OIS data** | log the OIS lens-shift samples per frame | **on**. Some phones accept this but send no samples (S24 Ultra), so check the data. |
+| **Enable OIS data** | log the OIS lens-shift samples per frame | **on**. Some phones accept this but send no samples (S24 Ultra), so check the data. The Pixel 6 lists `android.statistics.oisSamples` as a result key, but this hasn't been tested yet. |
 | **Enable DVS** | digital/electronic stabilization (warps and crops the image) | **off, always**. EIS breaks the camera model. |
 
 Whatever you request, the **actually applied** OIS/EIS mode is stored per frame. You can prove
@@ -61,14 +61,14 @@ in your data that stabilization was off.
 
 | Setting | VIO recommendation |
 |---|---|
-| Auto Focus Mode: Continuous / Fix on Touch / Manual | **Manual** or **Fix on Touch**. Focus changes the focal length slightly, so keep it constant during a recording and between calibration and data. |
-| Focus Distance | for manual mode, e.g. hyperfocal or the typical scene distance |
+| Auto Focus Mode: Continuous / Fix on Touch / Manual | **Manual**. Focus changes the focal length measurably (on the Pixel 6, up to ~7%; see [lens breathing](#focus-changes-the-focal-length-lens-breathing)), so keep it constant during a recording and between calibration and data. With Fix on Touch, focus locks wherever you tapped; in our first test that was ~27 cm. |
+| Focus Distance | in **diopters** (1 / metres): 0 = infinity, 0.5 = 2 m, 3.65 = 27 cm. For a room, about 0.3–0.5 diopters (2–3 m). |
 
 ### Auto Exposure
 
 | Setting | VIO recommendation |
 |---|---|
-| Auto Exposure Mode / Exposure Time / ISO | Short exposure to limit motion blur (e.g. ≤ 5–10 ms), raising ISO if needed. Manual mode gives a stable frame rate. |
+| Auto Exposure Mode / Exposure Time / ISO | **Manual, about 3–8 ms**, raising ISO as needed. Auto exposure indoors picks the whole frame time: our first Pixel 6 test got **33.3 ms at ISO 711**, which blurs badly when moving. |
 | Freeze exposure while recording (default **on**) | on: one fixed exposure per clip, consistent images. Off only if light changes a lot during the recording. |
 | Blur budget (experimental, default off) | leave off unless you test it; untested on a moving phone |
 
@@ -135,6 +135,39 @@ Most phone sensors are 4:3.
 Much larger frames don't help VIO. They cost encoder load, heat and disk space, while
 feature trackers usually work at about 640–1280 px width. Pick a moderate 4:3 size.
 
+### Lens selection on a logical camera
+
+Measured on the Pixel 6, 2026-11-10 (camera `0` = logical {main `2`, ultrawide `3`}):
+
+| Setting | What the video actually was |
+|---|---|
+| Logical, zoom 1.0 | main lens, native field of view |
+| Physical ID 3, zoom 1.0 | **ultrawide sensor, but cropped to the main lens's field of view.** The driver matches fields of view at zoom 1.0; the previous fork's author measured the same on an S24 Ultra. |
+| Physical ID 3, size not supported by the ultrawide (4080×3072) | ultrawide delivered as a 1920×1920 square and **stretched** into the video. Fixed in `fix/video-size-setting`: only sizes the lens supports are offered now. |
+| Logical, zoom 0.67 (widest), with still/stereo streams in the session | **main lens**, native field of view: the logical camera did not switch |
+
+So to get the full ultrawide field of view, use **zoom at the widest value** (slider fully left)
+and check the result. The next thing to test is Logical + widest zoom with **"Lenses in the
+session: Video only"**. Always check:
+- `focal_length_mm` and `active_physical_camera_id` in the frames;
+- the `camera.metadata_matches_video_lens` flag in `session.json` (see [05](05-output-data.md#lens-provenance)).
+
+### Focus changes the focal length (lens breathing)
+
+Moving the focus moves the lens, which changes the effective focal length. A single Pixel 6 test
+recording (960×1280, focus locked at 3.65 diopters ≈ 27 cm) contains three different values:
+
+| Source | fx (scaled to 960×1280) |
+|---|---:|
+| `camera_meta.intrinsic_params` (static factory calibration) | 876.7 px |
+| `est_focal_length_pix` (app's thin-lens estimate from the focus distance) | 912.9 px |
+| `lens_intrinsic_calibration` per frame (phone's dynamic value, 2980.8 × 0.3137) | 935.1 px |
+
+That's up to a 7% difference. So: **manual focus, the same value for calibration and data, and
+calibrate with Kalibr at that focus.** `lens_intrinsic_calibration` is stored in full-sensor,
+unrotated coordinates (4080×3072). Scale it by `resolution ÷ 4080` and rotate it like
+`intrinsic_params` before comparing.
+
 ### Orientation
 
 The app is locked to portrait, and phone camera sensors are usually mounted rotated
@@ -142,13 +175,16 @@ The app is locked to portrait, and phone camera sensors are usually mounted rota
 size you selected (e.g. 960×1280 instead of 1280×960). The app swaps fx/fy and cx/cy accordingly.
 Check `camera_meta.resolution` in your first recording.
 
-### Pixel 6 (our phone; not yet measured)
+### Pixel 6 (measured)
 
-Spec sheets give the main camera about **6.8 mm** physical focal length: a 50 MP sensor, normally
-used binned to 12.5 MP (4080×3072, 4:3). The ultrawide is about 114°. **Replace these numbers with the values from
-the Pixel 6's `camera_census.json` and a first recording**, including the physical camera IDs,
-timestamp source and OIS modes.
+| | Value |
+|---|---|
+| Main lens | physical camera **ID 2**, 6.81 mm, sensor 9.79×7.37 mm, 4080×3072 |
+| Ultrawide | physical camera **ID 3**, 2.35 mm |
+| Logical rear camera | ID **0** = {2, 3}, zoom 0.67–7.0 (below 1.0 means the ultrawide) |
+| Recommended Camera Lens setting | **Physical ID 2**. The logical camera reports zero distortion; ID 2 reports `[0.128, -0.198, 0.121, 0, 0]`. |
 
+All Pixel 6 values are collected in [08 – Tested devices](08-tested-devices.md).
 
 ## Things to check once per phone
 

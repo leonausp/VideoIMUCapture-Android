@@ -1,87 +1,129 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Session screen: the video fills the screen; the details (name, streams, stills, delete) are a
+     separate scrollable panel behind the "Info" button, so they never cover or squeeze the video
+     unless asked for. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:orientation="vertical"
+    android:padding="8dp">
 
-    <LinearLayout
+    <!-- The black goes on the frame, NOT on the VideoView: a VideoView is a SurfaceView, whose
+         frames are composited BEHIND the window through a hole in it, and a background on the
+         view itself is drawn over that hole. That is why playback was black even though the
+         clip decoded and played.
+         The VideoView fills the frame; with both dimensions fixed it scales the clip to fit,
+         keeping its aspect ratio, and the frame centres it. -->
+    <FrameLayout
+        android:id="@+id/session_video_frame"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="8dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#000000">
 
         <VideoView
             android:id="@+id/session_video"
             android:layout_width="match_parent"
-            android:layout_height="360dp"
-            android:layout_gravity="center_horizontal"
-            android:background="#000000" />
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+    </FrameLayout>
 
-        <LinearLayout
-            android:id="@+id/session_controls"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <Button
-                android:id="@+id/session_play"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:minWidth="88dp"
-                android:text="▶ Play" />
-
-            <SeekBar
-                android:id="@+id/session_seek"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
-
-            <TextView
-                android:id="@+id/session_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:minWidth="88dp"
-                android:gravity="end"
-                android:fontFamily="monospace"
-                android:textSize="12sp"
-                android:text="0:00 / 0:00" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/session_summary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/session_streams"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:fontFamily="monospace"
-            android:textSize="12sp" />
-
-        <TextView
-            android:id="@+id/session_stills_label"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="10dp"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/session_strip"
-            android:layout_width="match_parent"
-            android:layout_height="132dp" />
+    <LinearLayout
+        android:id="@+id/session_controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
         <Button
-            android:id="@+id/session_delete"
+            android:id="@+id/session_play"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="▶ Play" />
+
+        <SeekBar
+            android:id="@+id/session_seek"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/session_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="72dp"
+            android:gravity="end"
+            android:fontFamily="monospace"
+            android:textSize="12sp"
+            android:text="0:00 / 0:00" />
+
+        <!-- Same default button style as Play: the borderless style was barely visible. -->
+        <Button
+            android:id="@+id/session_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="ⓘ Info" />
+    </LinearLayout>
+
+    <!-- Hidden until "Info" is tapped (shown straight away for sessions without video). When
+         visible it shares the height with the video and scrolls on its own. -->
+    <ScrollView
+        android:id="@+id/session_details"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:visibility="gone">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Delete this session" />
-    </LinearLayout>
-</ScrollView>
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/session_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/session_streams"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="6dp"
+                android:fontFamily="monospace"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/session_stills_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="10dp"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/session_strip"
+                android:layout_width="match_parent"
+                android:layout_height="132dp" />
+
+            <Button
+                android:id="@+id/session_delete"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Delete this session" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

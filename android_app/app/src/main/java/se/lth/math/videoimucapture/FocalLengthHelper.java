@@ -52,6 +52,33 @@ public class FocalLengthHelper {
         this.mFocusDistance = mFocusDistance;
     }
 
+    private Float mZoomRatio;
+
+    /**
+     * CONTROL_ZOOM_RATIO of the SAME result the crop region came from. With a zoom ratio in use,
+     * SCALER_CROP_REGION is expressed in the post-zoom field of view, so the crop alone does not
+     * give the magnification. Measured on the Pixel 6 at zoom 0.6704 (logical camera): crop
+     * 2735 px wide, which read alone said "1.49x zoom-in" and gave 1331 px; the frames were the
+     * main lens at its native field of view, 892 px -- exactly 1331 x 0.6704.
+     */
+    public void setmZoomRatio(Float zoomRatio) {
+        this.mZoomRatio = zoomRatio;
+    }
+
+    /**
+     * Focal length in output pixels. Pure arithmetic, so it can be checked on the host.
+     *
+     * @param imageDistanceMm lens-to-sensor distance (focal length corrected for focus)
+     * @param pixelsPerMm     pixel array size / physical sensor size, along the matched axis
+     * @param imageOverCrop   output pixels per active-array pixel of the crop, same axis
+     * @param zoomRatio       CONTROL_ZOOM_RATIO of the result the crop came from (null = 1)
+     */
+    static float focalPixels(float imageDistanceMm, float pixelsPerMm, float imageOverCrop,
+                             Float zoomRatio) {
+        float zoom = (zoomRatio == null || zoomRatio <= 0f) ? 1f : zoomRatio;
+        return imageDistanceMm * pixelsPerMm * imageOverCrop * zoom;
+    }
+
     public float getScale() { return mScale; }
 
     public void setImageSize(Size mImageSize) {
@@ -79,7 +106,8 @@ public class FocalLengthHelper {
     // ref: https://source.android.com/devices/camera/camera3_crop_reprocess.html
     // https://stackoverflow.com/questions/39965408/what-is-the-android-camera2-api-equivalent-of-camera-parameters-gethorizontalvie
     public Float getFocalLengthPixel() {
-        if (mFocalLength != null) {
+        if (mFocalLength != null && mCropRegion != null && mImageSize != null
+                && mPixelArraySize != null && mPhysicalSize != null) {
             float imageDistance; // mm
             if (mFocusDistance == null || mFocusDistance == 0.f) {
                 imageDistance = mFocalLength;
@@ -94,12 +122,12 @@ public class FocalLengthHelper {
             float f_image_pixel;
             if (image_aspect >= crop_aspect) {
                 float scale = (float) mImageSize.getWidth() / ((float) mCropRegion.width());
-                f_image_pixel = scale * imageDistance * mPixelArraySize.getWidth() /
-                        mPhysicalSize.getWidth();
+                f_image_pixel = focalPixels(imageDistance,
+                        mPixelArraySize.getWidth() / mPhysicalSize.getWidth(), scale, mZoomRatio);
             } else {
                 float scale = (float) mImageSize.getHeight() / ((float) mCropRegion.height());
-                f_image_pixel = scale * imageDistance * mPixelArraySize.getHeight() /
-                        mPhysicalSize.getHeight();
+                f_image_pixel = focalPixels(imageDistance,
+                        mPixelArraySize.getHeight() / mPhysicalSize.getHeight(), scale, mZoomRatio);
             }
             return f_image_pixel;
         }

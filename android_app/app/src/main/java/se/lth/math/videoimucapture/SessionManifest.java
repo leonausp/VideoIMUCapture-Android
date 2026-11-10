@@ -66,6 +66,7 @@ public final class SessionManifest {
     private int mBatteryAtStart = -1;
     private int mBatteryAtEnd = -1;
     private String mLensSet = null;
+    private LensSummary mLensSummary = null;
     private int mLensesConfigured = -1;
     private int mLensesExpected = -1;
     private int mCameraError = -1;
@@ -161,6 +162,85 @@ public final class SessionManifest {
         mLensSet = set;
         mLensesConfigured = configured;
         mLensesExpected = expected;
+    }
+
+    /**
+     * Which lens the video's frames came from, and whose metadata describes them.
+     *
+     * Pure data, no Android types, so the consistency rule can be tested on the host.
+     * "Logical" stands for the logical camera, as in the Camera Lens setting.
+     */
+    public static final class LensSummary {
+        final String requested;            // "Logical" or the pinned physical id
+        final String logicalCameraId;
+        final boolean videoOnly;
+        final java.util.List<String> metadataFrom;   // ids whose results filled the rows
+        final java.util.List<String> activeLenses;   // LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID seen
+        final float focalMmMin, focalMmMax;          // LENS_FOCAL_LENGTH over the rows
+        final float lensFocalMm;                     // the described camera's own focal length
+        final int rows;
+
+        public LensSummary(String requested, String logicalCameraId, boolean videoOnly,
+                           java.util.List<String> metadataFrom, java.util.List<String> activeLenses,
+                           float focalMmMin, float focalMmMax, float lensFocalMm, int rows) {
+            this.requested = requested;
+            this.logicalCameraId = logicalCameraId;
+            this.videoOnly = videoOnly;
+            this.metadataFrom = metadataFrom;
+            this.activeLenses = activeLenses;
+            this.focalMmMin = focalMmMin;
+            this.focalMmMax = focalMmMax;
+            this.lensFocalMm = lensFocalMm;
+            this.rows = rows;
+        }
+
+        /**
+         * Does the file's metadata describe the lens that made the video?
+         *  - pinned to a physical lens: every row came from that lens's own result;
+         *  - logical camera: one focal length throughout, equal to the logical camera's own
+         *    (static intrinsics/distortion are the logical camera's, so a switch to another
+         *    lens -- e.g. the ultrawide at zoom < 1 -- leaves them describing the wrong lens).
+         * Null when nothing was recorded.
+         */
+        public Boolean metadataMatchesVideoLens() {
+            if (rows <= 0) {
+                return null;
+            }
+            if (!"Logical".equals(requested)) {
+                return metadataFrom.size() == 1 && requested.equals(metadataFrom.get(0));
+            }
+            if (Float.isNaN(focalMmMin) || Float.isNaN(lensFocalMm)) {
+                return activeLenses.size() <= 1;
+            }
+            return activeLenses.size() <= 1
+                    && Math.abs(focalMmMax - focalMmMin) < 0.01f
+                    && Math.abs(focalMmMin - lensFocalMm) < 0.01f;
+        }
+
+        JSONObject toJson() throws JSONException {
+            JSONObject o = new JSONObject();
+            o.put("requested", requested);
+            o.put("logical_camera_id", logicalCameraId);
+            o.put("video_only_session", videoOnly);
+            o.put("metadata_from", new org.json.JSONArray(metadataFrom));
+            o.put("active_physical_lenses", new org.json.JSONArray(activeLenses));
+            if (!Float.isNaN(focalMmMin)) {
+                o.put("focal_length_mm_min", (double) focalMmMin);
+                o.put("focal_length_mm_max", (double) focalMmMax);
+            }
+            if (!Float.isNaN(lensFocalMm)) {
+                o.put("described_lens_focal_mm", (double) lensFocalMm);
+            }
+            Boolean ok = metadataMatchesVideoLens();
+            if (ok != null) {
+                o.put("metadata_matches_video_lens", (boolean) ok);
+            }
+            return o;
+        }
+    }
+
+    public void noteLens(LensSummary summary) {
+        mLensSummary = summary;
     }
 
     /**
@@ -337,6 +417,10 @@ public final class SessionManifest {
             }
             battery.put("stopped_for_battery", mStoppedForBattery);
             root.put("battery", battery);
+
+            if (mLensSummary != null) {
+                root.put("camera", mLensSummary.toJson());
+            }
 
             // Only when it happened. A receipt that always carried "camera_error": -1 would
             // teach the reader to skip the field, and this one is worth reading every time.

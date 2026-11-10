@@ -78,6 +78,26 @@ public class Camera2Proxy {
 
     private FocalLengthHelper mFocalLengthHelper = new FocalLengthHelper();
 
+    // ---- which lens the video comes from (fix/physical-camera) ----
+    // The physical camera id the video stream is pinned to, or null for the logical camera.
+    // Resolved in configureCamera() from the "Camera Lens" setting, validated against the
+    // device's physical ids. Per-frame metadata and CameraInfo are read for THIS lens.
+    private volatile String mVideoLensId = null;
+    // Characteristics of that lens (the logical camera's when mVideoLensId is null).
+    private CameraCharacteristics mLensCharacteristics;
+    // Latest result of that lens (or the logical result): the HAL's per-frame intrinsics.
+    private volatile CaptureResult mLastLensResult;
+    // "Lenses in the session: Video only": no still or stereo streams in the session. Read at
+    // session creation; stills and periodic pairs are refused while it is set.
+    private volatile boolean mVideoOnlySession = false;
+    // What the frames of the current recording actually came from (camera thread writes,
+    // UI thread reads at seal: guarded by mLensSummaryLock).
+    private final Object mLensSummaryLock = new Object();
+    private final java.util.TreeSet<String> mActiveLensesSeen = new java.util.TreeSet<>();
+    private final java.util.TreeSet<String> mMetadataLensesSeen = new java.util.TreeSet<>();
+    private float mFocalMmMin = Float.NaN, mFocalMmMax = Float.NaN;
+    private int mLensRows = 0;
+
     public boolean getSwappedDimensions() {return mSwappedDimensions;}
 
     private CameraDevice.StateCallback mStateCallback = new CameraDevice.StateCallback() {
@@ -293,6 +313,11 @@ public class Camera2Proxy {
     /** Both physical streams into the repeating request, a pair kept every intervalMs. */
     public void startPeriodicStereo(long intervalMs, File outputDir, RecordingWriter writer,
                                     StillCaptureManager.CaptureMode mode) {
+        if (mVideoOnlySession) {
+            // The physical streams are not in a video-only session; targeting them would throw.
+            Log.w(TAG, "periodic stereo pairs skipped: session is video only");
+            return;
+        }
         mStereoRequests.startPeriodic(intervalMs, outputDir, writer, mode);
     }
 
@@ -334,8 +359,10 @@ public class Camera2Proxy {
             int i = (mPreRollNext + k) % PRE_ROLL_RESULTS;
             TotalCaptureResult r = mPreRollResults[i];
             if (r != null && r.get(CaptureResult.SENSOR_TIMESTAMP) != null) {
-                mRecordingWriter.queueData(FrameRecords.frame(r, mPreRollFocal[i],
+                FrameRecords.LensResult lr = FrameRecords.LensResult.of(r, mVideoLensId);
+                mRecordingWriter.queueData(FrameRecords.frame(lr, mPreRollFocal[i],
                         mFocalLengthHelper));
+                noteLensRow(lr);
             }
             mPreRollResults[i] = null;
             mPreRollFocal[i] = null;
@@ -345,6 +372,7 @@ public class Camera2Proxy {
 
     public void startRecordingCaptureResult(RecordingWriter recordingWriter) {
         mRecordingWriter = recordingWriter;
+        resetLensSummary();
         Handler camera = mBackgroundHandler;
         if (camera != null) {
             camera.post(this::beginFrameRows);
@@ -636,8 +664,9 @@ public class Camera2Proxy {
      * to slow down for blur that is not there.
      */
     public float getFocalPixels() {
-        if (mLastResult != null) {
-            float[] k = mLastResult.get(CaptureResult.LENS_INTRINSIC_CALIBRATION);
+        CaptureResult last = mLastLensResult != null ? mLastLensResult : mLastResult;
+        if (last != null) {
+            float[] k = last.get(CaptureResult.LENS_INTRINSIC_CALIBRATION);
             if (k != null && k.length >= 1 && k[0] > 0f) {
                 // NOT multiplied by cropMagnification(), on measurement rather than on argument.
                 // The crop reasoning below is sound and its conclusion was WRONG for this device
@@ -766,7 +795,8 @@ public class Camera2Proxy {
             sensorArraySize = mCameraCharacteristics.get(
                     CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
 
-            mFocalLengthHelper.setLensParams(mCameraCharacteristics);
+            resolveVideoLens();
+            mFocalLengthHelper.setLensParams(mLensCharacteristics);
             mFocalLengthHelper.setImageSize(videoSize);
 
             // Find out if we need to swap dimension to get the preview size relative to sensor coordinate.
@@ -921,8 +951,13 @@ public class Camera2Proxy {
             // Stills share the preview session: the JPEG (and RAW) readers must be declared
             // as outputs at configuration time, even though they only receive frames when a
             // burst is fired.
-            LensRoles.setAllLensShot("all".equals(PreferenceManager
-                    .getDefaultSharedPreferences(mActivity).getString("lens_set", "pair")));
+            String lensSet = PreferenceManager
+                    .getDefaultSharedPreferences(mActivity).getString("lens_set", "pair");
+            LensRoles.setAllLensShot("all".equals(lensSet));
+            // "none" = video only: the session holds the video stream and nothing else. Every
+            // extra stream is a constraint on the HAL; on the Pixel 6 the logical camera with
+            // still + physical stereo streams did not switch to the ultrawide at zoom 0.67.
+            mVideoOnlySession = "none".equals(lensSet);
             mStillCaptureManager =
                     new StillCaptureManager(mCameraCharacteristics, mCameraManager,
                             mBackgroundHandler,
@@ -950,17 +985,21 @@ public class Camera2Proxy {
                 OutputConfiguration outputConfiguration = new OutputConfiguration(mPreviewSurface);
                 mCameraSettingsManager.updateOutputConfiguration(outputConfiguration);
                 outputs.add(outputConfiguration);
-                for (Surface s : stillSurfaces) {
-                    outputs.add(new OutputConfiguration(s));
-                }
-                // Physical-camera streams for the simultaneous stereo pair. The probe
-                // confirmed preview+JPEG+RAW+2 physical configures on this device, so
-                // they can live in the main session rather than needing their own.
-                for (Map.Entry<String, Surface> e
-                        : mStillCaptureManager.stereo().getStereoSurfaces().entrySet()) {
-                    OutputConfiguration oc = new OutputConfiguration(e.getValue());
-                    oc.setPhysicalCameraId(e.getKey());
-                    outputs.add(oc);
+                if (mVideoOnlySession) {
+                    Log.i(TAG, "video-only session: no still or stereo streams configured");
+                } else {
+                    for (Surface s : stillSurfaces) {
+                        outputs.add(new OutputConfiguration(s));
+                    }
+                    // Physical-camera streams for the simultaneous stereo pair. The probe
+                    // confirmed preview+JPEG+RAW+2 physical configures on this device, so
+                    // they can live in the main session rather than needing their own.
+                    for (Map.Entry<String, Surface> e
+                            : mStillCaptureManager.stereo().getStereoSurfaces().entrySet()) {
+                        OutputConfiguration oc = new OutputConfiguration(e.getValue());
+                        oc.setPhysicalCameraId(e.getKey());
+                        outputs.add(oc);
+                    }
                 }
                 mCameraDevice.createCaptureSession(new SessionConfiguration(
                         SessionConfiguration.SESSION_REGULAR,
@@ -1089,16 +1128,46 @@ public class Camera2Proxy {
                         }
                     }
 
-                    Long exposureTimeNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+                    // Read the frame as the lens that produced the video saw it (the pinned
+                    // physical lens's own result when one is selected), not the logical result.
+                    FrameRecords.LensResult lr = FrameRecords.LensResult.of(result, mVideoLensId);
+                    mLastLensResult = lr.lens;
 
-                    Float fl = result.get(CaptureResult.LENS_FOCAL_LENGTH);
+                    Long exposureTimeNs = lr.get(CaptureResult.SENSOR_EXPOSURE_TIME);
 
-                    Float fd = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
+                    Float fl = lr.get(CaptureResult.LENS_FOCAL_LENGTH);
+                    // The derived focal estimate needs the focal length of the camera whose
+                    // coordinate system the crop and zoom are in. For the logical camera that is
+                    // the logical camera's own lens, even when it has switched to another
+                    // physical lens (LENS_FOCAL_LENGTH then reports the active lens, e.g. 2.35 mm
+                    // on the Pixel 6 ultrawide at zoom 0.67, and mixing the two gave 207 px for
+                    // ~598 px frames). focal_length_mm in the file still records LENS_FOCAL_LENGTH.
+                    Float flForEstimate = fl;
+                    if (mVideoLensId == null && mLensCharacteristics != null) {
+                        float[] nominal = mLensCharacteristics.get(
+                                CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+                        if (nominal != null && nominal.length == 1) {
+                            flForEstimate = nominal[0];
+                        }
+                    }
 
-                    Rect rect = result.get(CaptureResult.SCALER_CROP_REGION);
-                    mFocalLengthHelper.setmFocalLength(fl);
+                    Float fd = lr.get(CaptureResult.LENS_FOCUS_DISTANCE);
+
+                    // Crop and zoom from the SAME result: with a zoom ratio in use the crop is
+                    // expressed in the post-zoom field of view, so mixing the lens's crop with
+                    // the logical camera's zoom (or the reverse) gives a wrong magnification.
+                    Rect rect = lr.lensOnly(CaptureResult.SCALER_CROP_REGION);
+                    Float zoom = Build.VERSION.SDK_INT >= 30
+                            ? lr.lensOnly(CaptureResult.CONTROL_ZOOM_RATIO) : null;
+                    if (rect == null) {
+                        rect = result.get(CaptureResult.SCALER_CROP_REGION);
+                        zoom = Build.VERSION.SDK_INT >= 30
+                                ? result.get(CaptureResult.CONTROL_ZOOM_RATIO) : null;
+                    }
+                    mFocalLengthHelper.setmFocalLength(flForEstimate);
                     mFocalLengthHelper.setmFocusDistance(fd);
                     mFocalLengthHelper.setmCropRegion(rect);
+                    mFocalLengthHelper.setmZoomRatio(zoom);
                     Float focal_length_pix = mFocalLengthHelper.getFocalLengthPixel();
 
                     if (mRecordingMetadata) {
@@ -1106,7 +1175,8 @@ public class Camera2Proxy {
                         // "est" and the HAL's own value has its own field
                         // (lens_intrinsic_calibration), so both provenances survive in the file.
                         mRecordingWriter.queueData(
-                                FrameRecords.frame(result, focal_length_pix, mFocalLengthHelper));
+                                FrameRecords.frame(lr, focal_length_pix, mFocalLengthHelper));
+                        noteLensRow(lr);
                     } else {
                         rememberForPreRoll(result, focal_length_pix);
                     }
@@ -1183,7 +1253,95 @@ public class Camera2Proxy {
 
     public void writeCameraInfo() {
         mRecordingWriter.queueData(FrameRecords.cameraInfo(mCameraSettingsManager,
-                mCameraCharacteristics, mFocalLengthHelper, mSwappedDimensions));
+                mLensCharacteristics != null ? mLensCharacteristics : mCameraCharacteristics,
+                mFocalLengthHelper, mSwappedDimensions,
+                mVideoLensId != null ? mVideoLensId : FrameRecords.LOGICAL,
+                mVideoLensId != null ? mVideoLensId : mCameraIdStr,
+                mCameraIdStr));
+    }
+
+    /**
+     * Which lens the video stream will be bound to, and its characteristics. The setting is only
+     * honoured if it names one of this logical camera's physical cameras (the same condition
+     * under which CameraSettingPhysicalCamera binds the output); otherwise the logical camera.
+     */
+    private void resolveVideoLens() {
+        mVideoLensId = null;
+        mLensCharacteristics = mCameraCharacteristics;
+        String id = mCameraSettingsManager.getPhysicalCameraId();
+        if (id == null || Build.VERSION.SDK_INT < 28) {
+            return;
+        }
+        if (!mCameraCharacteristics.getPhysicalCameraIds().contains(id)) {
+            Log.w(TAG, "Camera Lens " + id + " is not a physical camera of " + mCameraIdStr
+                    + "; recording metadata for the logical camera");
+            return;
+        }
+        try {
+            mLensCharacteristics = mCameraManager.getCameraCharacteristics(id);
+            mVideoLensId = id;
+            Log.i(TAG, "video pinned to physical camera " + id
+                    + "; metadata will be read for that lens");
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            Log.w(TAG, "could not read physical camera " + id + "; logical metadata: " + e);
+            mLensCharacteristics = mCameraCharacteristics;
+        }
+    }
+
+    /** The physical camera the video is pinned to, or null for the logical camera. */
+    public String getVideoLensId() {
+        return mVideoLensId;
+    }
+
+    public boolean isVideoOnlySession() {
+        return mVideoOnlySession;
+    }
+
+    /** Camera thread: account one recorded row for the session receipt. */
+    private void noteLensRow(FrameRecords.LensResult lr) {
+        String active = null;
+        if (Build.VERSION.SDK_INT >= 29) {
+            active = lr.logical.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+        }
+        Float mm = lr.get(CaptureResult.LENS_FOCAL_LENGTH);
+        synchronized (mLensSummaryLock) {
+            mLensRows++;
+            mMetadataLensesSeen.add(lr.metadataCameraId);
+            if (active != null) {
+                mActiveLensesSeen.add(active);
+            }
+            if (mm != null) {
+                mFocalMmMin = Float.isNaN(mFocalMmMin) ? mm : Math.min(mFocalMmMin, mm);
+                mFocalMmMax = Float.isNaN(mFocalMmMax) ? mm : Math.max(mFocalMmMax, mm);
+            }
+        }
+    }
+
+    private void resetLensSummary() {
+        synchronized (mLensSummaryLock) {
+            mLensRows = 0;
+            mActiveLensesSeen.clear();
+            mMetadataLensesSeen.clear();
+            mFocalMmMin = Float.NaN;
+            mFocalMmMax = Float.NaN;
+        }
+    }
+
+    /** What the recorded frames came from, for session.json. Any thread. */
+    public SessionManifest.LensSummary lensSummary() {
+        float[] lensFocals = mLensCharacteristics == null ? null
+                : mLensCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+        synchronized (mLensSummaryLock) {
+            return new SessionManifest.LensSummary(
+                    mVideoLensId != null ? mVideoLensId : FrameRecords.LOGICAL,
+                    mCameraIdStr,
+                    mVideoOnlySession,
+                    new java.util.ArrayList<>(mMetadataLensesSeen),
+                    new java.util.ArrayList<>(mActiveLensesSeen),
+                    mFocalMmMin, mFocalMmMax,
+                    lensFocals != null && lensFocals.length > 0 ? lensFocals[0] : Float.NaN,
+                    mLensRows);
+        }
     }
 
     private void startBackgroundThread() {
