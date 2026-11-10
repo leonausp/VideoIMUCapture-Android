@@ -59,6 +59,30 @@ Settings: logical camera, 960×1280, H.264, auto exposure frozen, focus fixed by
 | IMU coverage | starts **134 ms after** the first frame, ends 150 ms after the last; drop the first ~4 frames |
 | Other streams | barometer 107, OS orientation 1428, thermal 1, light 2, steps 1 (baseline); GNSS 0 (indoors / no permission) |
 
+### Ultrawide (physical camera 3), measured 2026-11-10
+
+Measured with the `fix/physical-camera` build, phone still, compared with the main lens at 960×1280:
+
+| Setting | Field of view vs. main | Notes |
+|---|---|---|
+| Camera Lens 3, zoom 1.0 | 1.02 (same as main) | the driver crops the ultrawide to the main lens's field of view |
+| **Camera Lens 3, zoom fully left (0.67)** | **0.72: full ultrawide** | metadata all from camera 3 ✅ |
+| Logical, zoom 0.67, "pair" | 1.04 (main lens) | the logical camera does **not** switch with extra streams in the session |
+| Logical, zoom 0.67, **Video only** | 0.69: full ultrawide | switches (`active_physical_camera_id` = 3), but static intrinsics are the main lens's (flagged) |
+
+Ultrawide values (pinned, 960×1280):
+
+| | Value |
+|---|---|
+| Focal length | 2.35 mm, fixed focus (no OIS, no focus breathing) |
+| fx (factory, scaled) / app estimate | 598.9 px / 598.4 px |
+| Distortion (factory) | `[0.0956, -0.1026, 0.0163, -0.0001, -0.0005]`: calibrate with a fisheye/equidistant model |
+| **Rolling-shutter readout** | **32.4 ms** (main lens: 13.6 ms) |
+| `lens_time_ns − time_ns` | median +0.28 ms, range −0.37…+0.79 ms (sensor sync "approximate") |
+| ISO reported at 5 ms | 1354 (main: 957 for the same scene) |
+
+**For VIO with the ultrawide: Camera Lens = 3, zoom fully left, Lenses in the session = Video only.** Use `lens_time_ns` as the image time.
+
 ### Recommended settings for this phone
 
 - **Camera Lens:** physical ID **2**; zoom 1.0.

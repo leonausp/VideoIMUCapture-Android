@@ -198,6 +198,10 @@ message VideoFrameMetaData {
   // dropped every row. The difference lens_time_ns - time_ns is the lens's offset from the
   // buffer timestamp; for VIO, lens_time_ns is the start of exposure of the pixels recorded.
   optional int64 lens_time_ns = 37;
+  // CONTROL_ZOOM_RATIO of the LOGICAL result: the "Zoom ratio" setting as the camera applied it.
+  // zoom_ratio above belongs to the result the crop came from; for a pinned lens that is the
+  // lens's own result, which reports its own (often 1.0) zoom, so the setting is only here.
+  optional float logical_zoom_ratio = 38;
 }
 
 // Barometer sample. time_ns is the sensor event timestamp, same clock as IMUData.time_ns.

@@ -240,6 +240,10 @@ final class FrameRecords {
             if (zoom != null) {
                 frameBuilder.setZoomRatio(zoom);
             }
+            Float logicalZoom = result.logical.get(CaptureResult.CONTROL_ZOOM_RATIO);
+            if (logicalZoom != null) {
+                frameBuilder.setLogicalZoomRatio(logicalZoom);
+            }
         }
 
         Integer focus_state = result.get(CaptureResult.CONTROL_AF_STATE);

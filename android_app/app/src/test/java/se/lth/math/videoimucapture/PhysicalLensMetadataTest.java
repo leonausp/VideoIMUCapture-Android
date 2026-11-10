@@ -44,6 +44,18 @@ public class PhysicalLensMetadataTest {
     }
 
     @Test
+    public void logicalCameraSwitchedToUltrawideUsesTheLogicalFocalLength() {
+        // 23:09:31: logical camera, zoom 0.6704, active lens = ultrawide, focus 0.325 dpt, crop
+        // (1,10)-(4080,3062) in logical coordinates. Using the active lens's 2.35 mm gave 207 px;
+        // the logical camera's 6.81 mm gives ~598 px, the ultrawide's real fx at 960x1280
+        // (factory 1886.5 x 1280/4032 = 598.9).
+        float imageDistance = 1000f / (1000f / 6.81f - 0.325251f);
+        float f = FocalLengthHelper.focalPixels(imageDistance, MAIN_PX_PER_MM,
+                1280f / 4079f, 0.6704426f);
+        assertEquals(598.9f, f, 2f);
+    }
+
+    @Test
     public void missingOrInvalidZoomMeansOne() {
         float a = FocalLengthHelper.focalPixels(6.8f, 400f, 0.5f, null);
         assertEquals(a, FocalLengthHelper.focalPixels(6.8f, 400f, 0.5f, 0f), 1e-3f);

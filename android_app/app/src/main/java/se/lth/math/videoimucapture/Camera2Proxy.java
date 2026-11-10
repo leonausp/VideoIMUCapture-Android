@@ -1136,6 +1136,20 @@ public class Camera2Proxy {
                     Long exposureTimeNs = lr.get(CaptureResult.SENSOR_EXPOSURE_TIME);
 
                     Float fl = lr.get(CaptureResult.LENS_FOCAL_LENGTH);
+                    // The derived focal estimate needs the focal length of the camera whose
+                    // coordinate system the crop and zoom are in. For the logical camera that is
+                    // the logical camera's own lens, even when it has switched to another
+                    // physical lens (LENS_FOCAL_LENGTH then reports the active lens, e.g. 2.35 mm
+                    // on the Pixel 6 ultrawide at zoom 0.67, and mixing the two gave 207 px for
+                    // ~598 px frames). focal_length_mm in the file still records LENS_FOCAL_LENGTH.
+                    Float flForEstimate = fl;
+                    if (mVideoLensId == null && mLensCharacteristics != null) {
+                        float[] nominal = mLensCharacteristics.get(
+                                CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+                        if (nominal != null && nominal.length == 1) {
+                            flForEstimate = nominal[0];
+                        }
+                    }
 
                     Float fd = lr.get(CaptureResult.LENS_FOCUS_DISTANCE);
 
@@ -1150,7 +1164,7 @@ public class Camera2Proxy {
                         zoom = Build.VERSION.SDK_INT >= 30
                                 ? result.get(CaptureResult.CONTROL_ZOOM_RATIO) : null;
                     }
-                    mFocalLengthHelper.setmFocalLength(fl);
+                    mFocalLengthHelper.setmFocalLength(flForEstimate);
                     mFocalLengthHelper.setmFocusDistance(fd);
                     mFocalLengthHelper.setmCropRegion(rect);
                     mFocalLengthHelper.setmZoomRatio(zoom);

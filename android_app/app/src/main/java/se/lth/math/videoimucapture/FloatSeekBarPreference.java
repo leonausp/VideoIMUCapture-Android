@@ -43,20 +43,28 @@ public class FloatSeekBarPreference extends SeekBarPreference implements SeekBar
         mTextView.setText(floatString);
     }
 
+    // Steps anchored to multiples of the resolution, with both endpoints reachable. See
+    // SliderSteps for why (zoom 1.0 used to be unselectable on the Pixel 6).
+    private SliderSteps steps() {
+        return new SliderSteps(mMin, mMax, mResolution);
+    }
+
     private float progressToValue(int progress) {
-        return progress*mResolution + mMin;
+        return steps().valueAt(progress);
     }
 
     private int valueToProgress(float value) {
-        Float intValue =(value - mMin)/mResolution;
-        return intValue.intValue();
+        return steps().indexOf(value);
     }
 
 
     public void setResolution(float res) {
         mResolution = res;
+        // One more digit than the step size, so an off-grid value (e.g. 0.6704, the Pixel 6's
+        // widest zoom, or an old stored 0.9704) is shown as it is, not rounded to a step.
+        mDecFormat.setMinimumFractionDigits(1);
         mDecFormat.setMaximumFractionDigits(
-                (int) Math.round(-Math.log10(res))
+                (int) Math.round(-Math.log10(res)) + 1
         );
     }
 
@@ -66,8 +74,7 @@ public class FloatSeekBarPreference extends SeekBarPreference implements SeekBar
 
         // Non-transitive R classes (AGP 8): these ids live in the preference library's R.
         mSeekBar = (SeekBar) view.findViewById(R.id.seekbar);
-        Float steps = (mMax - mMin)/mResolution;
-        mSeekBar.setMax(steps.intValue());
+        mSeekBar.setMax(steps().count() - 1);
         mSeekBar.setProgress(valueToProgress(getFloatValue()));
 
         mTextView = (TextView) view.findViewById(R.id.seekbar_value);
