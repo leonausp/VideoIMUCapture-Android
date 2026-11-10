@@ -692,7 +692,7 @@ public class CameraCaptureFragment extends Fragment
     /**
      * The live readout under the toolbar, as labelled lines:
      *   1. which lens (focal length in mm, so main vs. ultrawide is obvious) and the focal length
-     *      in VIDEO pixels (the derived estimate, which includes crop and zoom);
+     *      in VIDEO pixels: the HAL's per-frame value where it applies, else the estimate (≈);
      *   2. exposure, ISO, IMU rate;
      *   3. status, only when there is something to say (recording clock, storage, EV, blur,
      *      heat from 40 C or when throttling, battery).
@@ -701,13 +701,17 @@ public class CameraCaptureFragment extends Fragment
      */
     public void updateCaptureResultPanel(
             final Float focalMm,
-            final Float focalVideoPx,
+            final float focalVideoPx,
+            final boolean focalMeasured,
             final Long exposureTimeNs,
             final Integer iso) {
+        // f: the phone's per-frame value in video pixels when available ("f 913 px"), else the
+        // app's estimate, marked with ≈ ("f ≈892 px"). One value: fx = fy on square pixels.
         final String lens = (focalMm == null ? "Lens ?" :
                 String.format(Locale.getDefault(), "Lens %.2f mm", focalMm))
-                + (focalVideoPx == null || focalVideoPx <= 0f ? "" :
-                String.format(Locale.getDefault(), "  ·  f %.0f px", focalVideoPx));
+                + (Float.isNaN(focalVideoPx) || focalVideoPx <= 0f ? "" :
+                String.format(Locale.getDefault(), focalMeasured ? "  ·  f %.0f px"
+                        : "  ·  f ≈%.0f px", focalVideoPx));
         final String sexpotime = exposureTimeNs == null ? "Exp ?" :
                 String.format(Locale.getDefault(), "Exp %.2f ms", exposureTimeNs / 1000000.0);
         final String siso = iso == null ? "" : String.format(Locale.getDefault(), "  ·  ISO %d", iso);
