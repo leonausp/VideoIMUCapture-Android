@@ -690,8 +690,7 @@ public class CameraCaptureFragment extends Fragment
 
 
     /**
-     * The live readout under the toolbar, as labelled lines (line 1 shares the row with
-     * resolution and fps, see onFrameAvailable):
+     * The live readout under the toolbar, as labelled lines:
      *   1. which lens (focal length in mm, so main vs. ultrawide is obvious) and the focal length
      *      in VIDEO pixels: the HAL's per-frame value where it applies, else the estimate (≈);
      *   2. exposure, ISO, IMU rate;
@@ -700,9 +699,6 @@ public class CameraCaptureFragment extends Fragment
      * It used to be one '|'-joined line ("|FL: 2794.394|Exp: ...") with the focal length in
      * full-sensor pixels, which read as "IFL" and ran into the torch button.
      */
-    private volatile String mPreviewFacts = "";
-    private volatile String mLensFacts = "";
-
     public void updateCaptureResultPanel(
             final Float focalMm,
             final float focalVideoPx,
@@ -803,10 +799,7 @@ public class CameraCaptureFragment extends Fragment
                 status.append(t);
             }
         }
-        // The lens facts join the resolution/fps line (set in onFrameAvailable); this view
-        // carries exposure and the optional status line.
-        mLensFacts = lens;
-        final String line = sexpotime + siso + imuHz
+        final String line = lens + "\n" + sexpotime + siso + imuHz
                 + (status.length() > 0 ? "\n" + status : "");
 
         getActivity().runOnUiThread(() -> {
@@ -879,19 +872,14 @@ public class CameraCaptureFragment extends Fragment
         if (Float.isNaN(fps)) {
             fps = getsVideoEncoder().mFrameRate;
         }
-        final String sfps = String.format(Locale.getDefault(), "%.1f fps", fps);
-        // First readout line: resolution and frame rate, then the lens facts from the latest
-        // capture result (one line instead of two, to keep the top band small).
-        mPreviewFacts = mCameraPreviewWidth + "x" + mCameraPreviewHeight + "  ·  " + sfps;
-        String lens = mLensFacts;
-        String first = lens == null || lens.isEmpty() ? mPreviewFacts
-                : mPreviewFacts + "  ·  " + lens;
+        final String sfps = String.format(Locale.getDefault(), "%.1f FPS", fps);
+        String previewFacts = mCameraPreviewWidth + "x" + mCameraPreviewHeight + "@" + sfps;
 
         View fragmentView = getView();
 
         if (fragmentView != null) {
             TextView text = (TextView) fragmentView.findViewById(R.id.cameraParams_text);
-            text.setText(first);
+            text.setText(previewFacts);
         }
 
     }
