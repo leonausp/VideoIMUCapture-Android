@@ -77,6 +77,11 @@ The schema has grown only by **adding** new field numbers, so files from older b
 and the upstream scripts in `calibration/` still read new files. If you change the schema, keep it
 that way: add fields, never renumber or reuse old ones.
 
+**Focal length and intrinsics fields** (`focal_length_mm`, `est_focal_length_pix`,
+`intrinsic_params`, …): what each one means, which change with resolution, and a known issue with
+the scaled principal point for cropped (16:9) sizes are covered in
+[04 – Focal length, resolution and lens selection](04-features-and-settings.md#focal-length-resolution-and-lens-selection).
+
 ## Timestamps and clocks
 
 | Data | Timestamp field | Clock |
