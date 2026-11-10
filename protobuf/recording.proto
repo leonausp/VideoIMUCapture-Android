@@ -64,6 +64,14 @@ message CameraInfo {
   Size pre_correction_active_array_size = 12; //SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE
   repeated float original_intrinsic_params = 13;
 
+  // Which camera this record describes. With "Camera Lens" set to a physical lens the video
+  // stream is bound to that lens, and every lens-specific field above (intrinsics, distortion,
+  // pose, array sizes, orientation) comes from THAT lens's characteristics. Before this field
+  // existed they always came from the logical camera, i.e. the main lens.
+  string requested_camera = 15;          // "Logical" or the physical camera id from the setting
+  string metadata_camera_id = 16;        // camera whose characteristics filled this message
+  string logical_camera_id = 17;         // the logical camera that was opened
+  repeated float lens_focal_lengths = 18; // LENS_INFO_AVAILABLE_FOCAL_LENGTHS of metadata_camera_id
 }
 
 message VideoFrameToTimestamp{
@@ -175,6 +183,14 @@ message VideoFrameMetaData {
   // allowed to vary with ISO and with the HAL's own scene decisions.
   optional int32 edge_mode = 32;              // EDGE_MODE: 0 OFF, 1 FAST, 2 HIGH_QUALITY, 3 ZERO_SHUTTER_LAG
   optional int32 noise_reduction_mode = 33;   // NOISE_REDUCTION_MODE: same scale
+
+  // Lens provenance, per frame. LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID says which physical lens
+  // the logical camera was using (it can switch with zoom); metadata_camera_id says whose
+  // capture result filled this row: the pinned physical lens's own result when "Camera Lens" is
+  // a physical id and the HAL delivered one, otherwise the logical result.
+  string active_physical_camera_id = 34;
+  string metadata_camera_id = 35;
+  optional float zoom_ratio = 36;            // CONTROL_ZOOM_RATIO of the result the crop came from
 }
 
 // Barometer sample. time_ns is the sensor event timestamp, same clock as IMUData.time_ns.

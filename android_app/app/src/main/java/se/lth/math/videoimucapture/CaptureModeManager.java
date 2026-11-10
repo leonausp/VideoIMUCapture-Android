@@ -342,6 +342,17 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
 
     /** The camera button. Exactly one entry point, whatever the mode. */
     public void onCaptureButton() {
+        // A video-only session ("Lenses in the session: Video only") has no still or stereo
+        // streams; a burst would target surfaces the session does not have and throw. Every
+        // stills path (button, activity, test plan) comes through here.
+        Camera2Proxy videoOnly = mActivity.getmCamera2Proxy();
+        if (!mRunning && videoOnly != null && videoOnly.isVideoOnlySession()) {
+            Log.w(TAG, "stills refused: session is video only");
+            android.widget.Toast.makeText(mActivity,
+                    "Stills are off: \"Lenses in the session\" is set to Video only",
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
         if (mMode == Mode.OBJECT) {
             mComposite.fire(mMode.name(), mTestTag);
             return;

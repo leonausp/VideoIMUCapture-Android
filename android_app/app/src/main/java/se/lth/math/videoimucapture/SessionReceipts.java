@@ -55,7 +55,14 @@ final class SessionReceipts {
         boolean periodic = proxy != null && proxy.periodicStereoPairs() > 0
                 && proxy.oneShotStereoBursts() == 0;
         int expected = periodic ? Math.min(2, configured) : configured;
-        manifest.noteLensSet(LensRoles.allLensShot() ? "all" : "pair", configured,
-                expected);
+        if (proxy != null && proxy.isVideoOnlySession()) {
+            manifest.noteLensSet("none", 0, 0);
+        } else {
+            manifest.noteLensSet(LensRoles.allLensShot() ? "all" : "pair", configured,
+                    expected);
+        }
+        if (proxy != null) {
+            manifest.noteLens(proxy.lensSummary());
+        }
     }
 }

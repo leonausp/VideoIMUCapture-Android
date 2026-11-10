@@ -3,6 +3,7 @@ package se.lth.math.videoimucapture;
 import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.ColorSpaceTransform;
 import android.hardware.camera2.params.LensIntrinsicsSample;
 import android.hardware.camera2.params.OisSample;
@@ -10,6 +11,8 @@ import android.hardware.camera2.params.RggbChannelVector;
 import android.os.Build;
 import android.util.Pair;
 import android.util.Size;
+
+import java.util.Map;
 
 import static java.lang.Math.abs;
 
@@ -26,16 +29,116 @@ final class FrameRecords {
     private FrameRecords() {
     }
 
+    /** The logical camera's id: the opened device, not a physical lens. */
+    static final String LOGICAL = "Logical";
+
+    /**
+     * One frame's metadata as seen from the lens that actually produced the video.
+     *
+     * When "Camera Lens" pins the video stream to a physical camera, that camera's own result is
+     * in TotalCaptureResult.getPhysicalCameraResults(); the logical result describes the logical
+     * camera (on the Pixel 6: the main lens) and was what this app used to record -- so an
+     * ultrawide clip carried the main lens's focal length, intrinsics, OIS samples and rolling
+     * shutter readout. get() prefers the lens's result and falls back to the logical one per key,
+     * because a physical result may omit keys that only the logical camera reports (AF state...).
+     */
+    static final class LensResult {
+        final CaptureResult lens;       // the pinned lens's own result, or the logical one
+        final TotalCaptureResult logical;
+        final String metadataCameraId;  // whose result `lens` is: a physical id, or LOGICAL
+
+        private LensResult(CaptureResult lens, TotalCaptureResult logical, String id) {
+            this.lens = lens;
+            this.logical = logical;
+            this.metadataCameraId = id;
+        }
+
+        static LensResult of(TotalCaptureResult total, String physicalId) {
+            if (physicalId != null && Build.VERSION.SDK_INT >= 28) {
+                @SuppressWarnings("deprecation") // getPhysicalCameraTotalResults is API 34+
+                Map<String, CaptureResult> physical = total.getPhysicalCameraResults();
+                CaptureResult r = physical == null ? null : physical.get(physicalId);
+                if (r != null) {
+                    return new LensResult(r, total, physicalId);
+                }
+            }
+            return new LensResult(total, total, LOGICAL);
+        }
+
+        /**
+         * Keys that describe one particular lens or sensor. When the video is pinned to a
+         * physical lens these are taken from that lens's result ONLY: falling back to the
+         * logical result would write the main lens's values (OIS samples, focal length, rolling
+         * shutter readout...) into an ultrawide clip, which is the bug being fixed. Missing is
+         * better than wrong. Built at runtime because several keys do not exist below their API
+         * level, and referencing them statically would fail class initialisation there.
+         */
+        private static final java.util.Set<CaptureResult.Key<?>> LENS_ONLY = lensOnlyKeys();
+
+        private static java.util.Set<CaptureResult.Key<?>> lensOnlyKeys() {
+            java.util.Set<CaptureResult.Key<?>> k = new java.util.HashSet<>();
+            k.add(CaptureResult.LENS_FOCAL_LENGTH);
+            k.add(CaptureResult.LENS_FOCUS_DISTANCE);
+            k.add(CaptureResult.LENS_STATE);
+            k.add(CaptureResult.LENS_APERTURE);
+            k.add(CaptureResult.LENS_OPTICAL_STABILIZATION_MODE);
+            k.add(CaptureResult.SENSOR_ROLLING_SHUTTER_SKEW);
+            k.add(CaptureResult.SCALER_CROP_REGION);
+            k.add(CaptureResult.SENSOR_NOISE_PROFILE);
+            k.add(CaptureResult.LENS_INTRINSIC_CALIBRATION);   // API 23; minSdk is 24
+            if (Build.VERSION.SDK_INT >= 28) {
+                k.add(CaptureResult.STATISTICS_OIS_SAMPLES);
+                k.add(CaptureResult.LENS_DISTORTION);
+                k.add(CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL);
+            }
+            if (Build.VERSION.SDK_INT >= 35) {
+                k.add(CaptureResult.STATISTICS_LENS_INTRINSICS_SAMPLES);
+            }
+            return k;
+        }
+
+        <T> T get(CaptureResult.Key<T> key) {
+            T v = lens.get(key);
+            if (v != null || lens == logical || LENS_ONLY.contains(key)) {
+                return v;
+            }
+            return logical.get(key);
+        }
+
+        /** Only from the lens's own result: for keys that must not be mixed across cameras. */
+        <T> T lensOnly(CaptureResult.Key<T> key) {
+            return lens.get(key);
+        }
+    }
+
+    /**
+     * @param mCameraCharacteristics the characteristics of the camera that produced the video:
+     *                               the pinned physical lens if one is selected, else the logical
+     *                               camera. Every lens-specific field below comes from it.
+     */
     static RecordingProtos.CameraInfo cameraInfo(CameraSettingsManager mCameraSettingsManager,
                                                  CameraCharacteristics mCameraCharacteristics,
                                                  FocalLengthHelper mFocalLengthHelper,
-                                                 boolean mSwappedDimensions) {
+                                                 boolean mSwappedDimensions,
+                                                 String requestedCamera,
+                                                 String metadataCameraId,
+                                                 String logicalCameraId) {
 
         RecordingProtos.CameraInfo.Builder metaBuilder = RecordingProtos.CameraInfo.newBuilder()
                 .setOpticalImageStabilization(mCameraSettingsManager.OISEnabled())
                 .setVideoStabilization(mCameraSettingsManager.DVSEnabled())
                 .setDistortionCorrection(mCameraSettingsManager.DistortionCorrectionEnabled())
                 .setSensorOrientation(mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION));
+
+        metaBuilder.setRequestedCamera(requestedCamera == null ? LOGICAL : requestedCamera)
+                .setMetadataCameraId(metadataCameraId == null ? "" : metadataCameraId)
+                .setLogicalCameraId(logicalCameraId == null ? "" : logicalCameraId);
+        float[] focals = mCameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+        if (focals != null) {
+            for (float f : focals) {
+                metaBuilder.addLensFocalLengths(f);
+            }
+        }
 
         Size resolution = mCameraSettingsManager.getVideoSize();
         metaBuilder.setResolution(
@@ -103,16 +206,38 @@ final class FrameRecords {
      * @param focal_length_pix the DERIVED estimate; the HAL's own value has its own field
      *                         (lens_intrinsic_calibration), so both provenances survive.
      */
-    static RecordingProtos.VideoFrameMetaData frame(CaptureResult result, Float focal_length_pix,
+    static RecordingProtos.VideoFrameMetaData frame(LensResult result, Float focal_length_pix,
                                                     FocalLengthHelper mFocalLengthHelper) {
         RecordingProtos.VideoFrameMetaData.Builder frameBuilder = RecordingProtos.VideoFrameMetaData.newBuilder()
                 .setTimeNs(result.get(CaptureResult.SENSOR_TIMESTAMP))
-                .setFocalLengthMm(result.get(CaptureResult.LENS_FOCAL_LENGTH))
-                .setEstFocalLengthPix(focal_length_pix);
+                .setMetadataCameraId(result.metadataCameraId);
 
-        int focus_state = result.get(CaptureResult.CONTROL_AF_STATE);
-        frameBuilder.setFocusLocked(focus_state != CaptureResult.CONTROL_AF_STATE_ACTIVE_SCAN
-                                 && focus_state != CaptureResult.CONTROL_AF_STATE_PASSIVE_SCAN);
+        Float focalMm = result.get(CaptureResult.LENS_FOCAL_LENGTH);
+        if (focalMm != null) {
+            frameBuilder.setFocalLengthMm(focalMm);
+        }
+        if (focal_length_pix != null) {
+            frameBuilder.setEstFocalLengthPix(focal_length_pix);
+        }
+        if (Build.VERSION.SDK_INT >= 29) {
+            // Lives on the LOGICAL result by definition: which lens the logical camera used.
+            String active = result.logical.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+            if (active != null) {
+                frameBuilder.setActivePhysicalCameraId(active);
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 30) {
+            Float zoom = result.lensOnly(CaptureResult.CONTROL_ZOOM_RATIO);
+            if (zoom != null) {
+                frameBuilder.setZoomRatio(zoom);
+            }
+        }
+
+        Integer focus_state = result.get(CaptureResult.CONTROL_AF_STATE);
+        if (focus_state != null) {
+            frameBuilder.setFocusLocked(focus_state != CaptureResult.CONTROL_AF_STATE_ACTIVE_SCAN
+                    && focus_state != CaptureResult.CONTROL_AF_STATE_PASSIVE_SCAN);
+        }
 
         // The following values are allowed to be null
         Long sExp = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
@@ -175,7 +300,7 @@ final class FrameRecords {
      * Every field is null-guarded: a HAL may report any subset, and a missing one is silence,
      * not a zero.
      */
-    private static void writeFrameRadiometry(CaptureResult result,
+    private static void writeFrameRadiometry(LensResult result,
                                       RecordingProtos.VideoFrameMetaData.Builder b) {
         RggbChannelVector gains =
                 result.get(CaptureResult.COLOR_CORRECTION_GAINS);

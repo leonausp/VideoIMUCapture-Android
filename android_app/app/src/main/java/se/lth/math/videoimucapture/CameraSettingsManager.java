@@ -183,6 +183,19 @@ public class CameraSettingsManager {
         return ((CameraSettingBoolean) mCameraSettings.get(Setting.DISTORTION_CORRECTION)).isOn();
     }
 
+    /**
+     * The physical camera id selected under "Camera Lens", or null for the logical camera.
+     * Not validated against the device: the caller checks it is one of the physical ids.
+     */
+    public String getPhysicalCameraId() {
+        CameraSetting c = mCameraSettings.get(Setting.PHYSICAL_CAMERA);
+        if (!(c instanceof CameraSettingPhysicalCamera)) {
+            return null;
+        }
+        String id = ((CameraSettingPhysicalCamera) c).getId();
+        return (id == null || "Logical".equals(id)) ? null : id;
+    }
+
     public Size getVideoSize() {
         return ((CameraSettingVideoSize) mCameraSettings.get(Setting.VIDEO_SIZE)).getSize();
     }

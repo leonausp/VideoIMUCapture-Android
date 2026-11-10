@@ -2,10 +2,12 @@
     <string-array name="lens_set_desc">
         <item>Metric pair (main + ultrawide)</item>
         <item>All rear lenses</item>
+        <item>Video only (no still or stereo streams)</item>
     </string-array>
     <string-array name="lens_set_values">
         <item>pair</item>
         <item>all</item>
+        <item>none</item>
     </string-array>
     <string-array name="focus_mode_desc">
         <item>Continuous</item>
