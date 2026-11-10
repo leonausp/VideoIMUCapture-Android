@@ -30,7 +30,7 @@
             app:title="Zoom ratio"
             app:showSeekBarValue="true"
             app:persistent="false"
-            app:summary="Set to less than 1 to use wide lens."/>
+            app:summary="Set to less than 1 to use the wide lens, if available (slider fully left = widest)."/>
 
         <SwitchPreferenceCompat
             app:key="distortion_correction"
