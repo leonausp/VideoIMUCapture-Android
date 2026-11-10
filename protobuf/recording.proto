@@ -191,6 +191,13 @@ message VideoFrameMetaData {
   string active_physical_camera_id = 34;
   string metadata_camera_id = 35;
   optional float zoom_ratio = 36;            // CONTROL_ZOOM_RATIO of the result the crop came from
+  // SENSOR_TIMESTAMP of the pinned physical lens's own result, when it differs from time_ns.
+  // time_ns stays the LOGICAL result's timestamp: that is the timestamp the video buffer
+  // carries, and the one rows are paired to frames by. On the Pixel 6 (sensor sync APPROXIMATE)
+  // the ultrawide's own timestamp did not match the buffer's within 10 us, and pairing on it
+  // dropped every row. The difference lens_time_ns - time_ns is the lens's offset from the
+  // buffer timestamp; for VIO, lens_time_ns is the start of exposure of the pixels recorded.
+  optional int64 lens_time_ns = 37;
 }
 
 // Barometer sample. time_ns is the sensor event timestamp, same clock as IMUData.time_ns.

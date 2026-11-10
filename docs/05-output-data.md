@@ -128,6 +128,7 @@ Added in `fix/physical-camera` (new protobuf fields, additive):
 | per frame | `metadata_camera_id` | whose capture result filled the row: the pinned lens's own result, or `"Logical"` |
 | per frame | `active_physical_camera_id` | which physical lens the logical camera was using (it can switch with zoom) |
 | per frame | `zoom_ratio` | `CONTROL_ZOOM_RATIO` of the result the crop region came from |
+| per frame | `lens_time_ns` | pinned lens only: that lens's own `SENSOR_TIMESTAMP`. `time_ns` stays the logical/buffer timestamp, which is what video frames are matched by. On the Pixel 6 (sensor sync "approximate") the two differ. For VIO, `lens_time_ns` is the start of exposure of the recorded pixels. |
 
 When the video is pinned to a physical lens, lens-specific values (focal length, intrinsics, OIS
 samples, rolling-shutter readout, crop, focus) come **only** from that lens's result. If the lens

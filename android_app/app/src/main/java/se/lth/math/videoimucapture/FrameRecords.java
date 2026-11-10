@@ -208,9 +208,18 @@ final class FrameRecords {
      */
     static RecordingProtos.VideoFrameMetaData frame(LensResult result, Float focal_length_pix,
                                                     FocalLengthHelper mFocalLengthHelper) {
+        // time_ns is ALWAYS the logical result's timestamp: the video buffer carries that one,
+        // and FramePairing joins rows to frames by it (10 us window). A pinned lens's own
+        // timestamp is recorded beside it, never instead of it -- see lens_time_ns.
         RecordingProtos.VideoFrameMetaData.Builder frameBuilder = RecordingProtos.VideoFrameMetaData.newBuilder()
-                .setTimeNs(result.get(CaptureResult.SENSOR_TIMESTAMP))
+                .setTimeNs(result.logical.get(CaptureResult.SENSOR_TIMESTAMP))
                 .setMetadataCameraId(result.metadataCameraId);
+        if (result.lens != result.logical) {
+            Long lensTime = result.lens.get(CaptureResult.SENSOR_TIMESTAMP);
+            if (lensTime != null) {
+                frameBuilder.setLensTimeNs(lensTime);
+            }
+        }
 
         Float focalMm = result.get(CaptureResult.LENS_FOCAL_LENGTH);
         if (focalMm != null) {
