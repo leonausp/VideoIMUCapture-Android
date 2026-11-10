@@ -182,6 +182,7 @@
         </LinearLayout>
 
         <android.widget.Space
+            android:id="@+id/capture_controls_space"
             android:layout_width="56dp"
             android:layout_height="1dp" />
 

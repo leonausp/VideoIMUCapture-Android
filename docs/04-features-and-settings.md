@@ -17,10 +17,21 @@
 
 Everything stays on the phone. There is no network or analytics code.
 
-## Capture modes
+## Capture modes (hidden in this build)
 
-The mode is chosen on the main screen. For VIO you only need the **Record** (video) button; the
-camera (stills) button is for photogrammetry.
+This app is set up for VIO, so the main screen shows **only the Record (video) button**. The
+previous fork's stills features are hidden:
+- the stills button and the WALK / OBJECT / PANO strip;
+- the **TESTS** menu entry;
+- the "Stereo pair every (s)" setting.
+
+"Lenses in the session" defaults to **Video only**. **Roll** (browsing recordings on the phone)
+stays.
+
+The code is still there. To bring the features back, set
+`buildConfigField "boolean", "STILLS_UI", "true"` in `android_app/app/build.gradle` and rebuild.
+For reference, this is what the modes do. Video sessions are still named after the default mode
+(`walk_vid_<date>`).
 
 | Mode | Stills behaviour | Video |
 |---|---|---|

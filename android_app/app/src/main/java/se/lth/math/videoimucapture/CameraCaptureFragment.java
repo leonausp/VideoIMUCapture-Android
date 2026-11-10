@@ -155,6 +155,13 @@ public class CameraCaptureFragment extends Fragment
 
         mCaptureButton = view.findViewById(R.id.capture_button);
         mCaptureStatusText = view.findViewById(R.id.captureStatus_text);
+        if (!BuildConfig.STILLS_UI) {
+            // VIO build: video only. The stills button (with its caption), the gap beside it and
+            // the WALK/OBJECT/PANO strip are hidden; the record button stays centred on its own.
+            ((View) mCaptureButton.getParent()).setVisibility(View.GONE);
+            view.findViewById(R.id.capture_controls_space).setVisibility(View.GONE);
+            view.findViewById(R.id.captureMode_strip).setVisibility(View.GONE);
+        }
         mModeViews = new TextView[]{
                 view.findViewById(R.id.mode_walk),
                 view.findViewById(R.id.mode_object),
@@ -587,7 +594,8 @@ public class CameraCaptureFragment extends Fragment
         // Periodic stereo pairs inside the video (ReconStab #36). Opt-in, like the blur budget:
         // it puts a second sensor into the recording's own request for the whole clip, and what
         // that does to the video is unmeasured until the S1/S2 cells have been shot.
-        int stereoEvery = prefs.getInt("stereo_interval_s", 0);
+        // Hidden with the stills UI: a value stored earlier must not keep a second sensor running.
+        int stereoEvery = BuildConfig.STILLS_UI ? prefs.getInt("stereo_interval_s", 0) : 0;
         if (stereoEvery > 0) {
             StillCaptureManager.CaptureMode cm;
             switch (modes.getMode()) {

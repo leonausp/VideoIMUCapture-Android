@@ -291,7 +291,13 @@ public class CameraCaptureActivity extends AppCompatActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
-            return inflater.inflate(R.layout.capture_toolbar_fragment, container, false);
+            View root = inflater.inflate(R.layout.capture_toolbar_fragment, container, false);
+            // The TESTS matrix belongs to the stills features (see BuildConfig.STILLS_UI).
+            MaterialToolbar bar = root.findViewById(R.id.topAppBar);
+            if (bar != null && bar.getMenu().findItem(R.id.tests) != null) {
+                bar.getMenu().findItem(R.id.tests).setVisible(BuildConfig.STILLS_UI);
+            }
+            return root;
         }
     }
 

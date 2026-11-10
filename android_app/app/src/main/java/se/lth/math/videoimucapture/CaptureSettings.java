@@ -62,6 +62,13 @@ public class CaptureSettings extends PreferenceFragmentCompat {
            Therefore we set them as not persistent in the XML file.
          */
         setPreferencesFromResource(R.xml.settings, rootKey);
+        if (!BuildConfig.STILLS_UI) {
+            // Periodic stereo pairs are a stills feature; hidden with the rest of them.
+            androidx.preference.Preference stereo = findPreference("stereo_interval_s");
+            if (stereo != null) {
+                stereo.setVisible(false);
+            }
+        }
 
         CameraSettingsManager cameraSettingsManager = ((CameraCaptureActivity) getActivity()).getmCameraSettingsManager();
         cameraSettingsManager.updatePreferences(getPreferenceScreen());
