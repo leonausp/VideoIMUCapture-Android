@@ -39,7 +39,10 @@
             android:id="@+id/session_play"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:minWidth="88dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
             android:text="▶ Play" />
 
         <SeekBar
@@ -64,7 +67,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
-            android:minWidth="72dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
             android:text="ⓘ Info" />
     </LinearLayout>
 
