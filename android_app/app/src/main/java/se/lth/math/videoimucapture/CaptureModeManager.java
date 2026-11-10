@@ -216,9 +216,7 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
             proxy.lockAutoAlgorithms(true);
         }
         Log.i(TAG, "video session radiometry " + (mVideoLockedRadiometry ? "locked" : "floating"));
-        notifyState(mMode == Mode.OBJECT
-                ? "OBJECT · video (adds little to a fixed viewpoint)"
-                : mMode + " · video");
+        notifyState(videoStatus());
         Log.i(TAG, "video session started in " + dir + " (mode " + mMode + ")");
         return dir;
     }
@@ -550,7 +548,7 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
             // The video kept recording pictures and stopped recording anything that explains
             // them, which no file in the archive would show as anything but a short session.
             if (mVideoActive) {
-                notifyState(mMode + " · video");
+                notifyState(videoStatus());
                 Log.i(TAG, "stills stopped; video still recording, streams left open");
                 return;
             }
@@ -619,6 +617,19 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
      * came to announce itself as a live stills run. The caller now supplies only the sentence;
      * the facts come from the fields that actually hold them.
      */
+    /**
+     * The status line while a video records. With the stills UI hidden there are no modes on
+     * screen, so it must not say "WALK · video" after a mode nobody chose.
+     */
+    private String videoStatus() {
+        if (!BuildConfig.STILLS_UI) {
+            return "recording";
+        }
+        return mMode == Mode.OBJECT
+                ? "OBJECT · video (adds little to a fixed viewpoint)"
+                : mMode + " · video";
+    }
+
     private void notifyState(String summary) {
         if (mStateListener == null) {
             return;
