@@ -45,7 +45,7 @@ import java.util.List;
  * under the roll root and {@code file} a plain file directly under it.
  */
 public final class RollProvider extends ContentProvider {
-    public static final String AUTHORITY = "se.lth.math.videoimucapture.roll";
+    public static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".roll";
 
     public static final String COL_NAME = "name";
     public static final String COL_MODE = "mode";

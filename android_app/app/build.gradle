@@ -16,11 +16,14 @@ android {
     buildToolsVersion "35.0.1"
 
     defaultConfig {
-        applicationId "se.lth.math.videoimucapture"
+        // Own application ID so this build installs beside upstream/fork builds and its data
+        // cannot be mistaken for theirs. The Java namespace above stays se.lth.math.videoimucapture
+        // on purpose, so commits from the upstream fork still cherry-pick cleanly.
+        applicationId "io.github.leonausp.zerofriction_vio_slam"
         minSdkVersion 24
         targetSdkVersion 34
         versionCode 25
-        versionName "0.25"
+        versionName "0.25-zf.1"
 
         // WHICH BUILD SHOT THIS. versionName alone cannot answer it: a version is bumped once
         // and then a dozen builds carry it, so two clips that behave differently can both say
@@ -32,6 +35,11 @@ android {
         }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // BuildConfig.APPLICATION_ID is used for the RollProvider authority (AGP 8 disables it by default).
+    buildFeatures {
+        buildConfig true
     }
 
     compileOptions {
