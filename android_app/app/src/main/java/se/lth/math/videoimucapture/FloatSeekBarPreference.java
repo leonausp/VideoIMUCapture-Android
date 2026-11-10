@@ -42,12 +42,15 @@ public class FloatSeekBarPreference extends SeekBarPreference implements SeekBar
         super(context, attrs);
     }
 
-    public void setMax(float max) {
-        mMax = max;
-    }
-
-    public void setMin(float min) {
+    /**
+     * The slider's range. Deliberately NOT called setMin/setMax: SeekBarPreference has final
+     * setMin(int)/setMax(int), and Java resolves setMax(Integer) -- an ISO range from
+     * Range<Integer> -- to those instead of a float overload. That left this slider at its
+     * default 0..1 (ISO showed only 0 or 1). Distinct names make the wrong call impossible.
+     */
+    public void setRange(float min, float max) {
         mMin = min;
+        mMax = max;
     }
 
     /** Slider positions at these values (within [min, max]) instead of the resolution grid. */
@@ -155,7 +158,7 @@ public class FloatSeekBarPreference extends SeekBarPreference implements SeekBar
                         v = Math.round(v);
                     }
                     if (callChangeListener(v)) {
-                        setValue(v);
+                        setNumber(v);
                         updateText(v);
                     }
                 })
@@ -164,7 +167,8 @@ public class FloatSeekBarPreference extends SeekBarPreference implements SeekBar
         input.requestFocus();
     }
 
-    public void setValue(float value) {
+    /** Store and show a value. Deliberately not named setValue: see setRange(). */
+    public void setNumber(float value) {
         if (shouldPersist()) {
             if (mInteger) {
                 persistInt(Math.round(value));
@@ -193,7 +197,7 @@ public class FloatSeekBarPreference extends SeekBarPreference implements SeekBar
         float myDef = defaultValue instanceof Float ? (float) defaultValue
                 : defaultValue instanceof Integer ? (float) (Integer) defaultValue : mDefaultValue;
         float myValue = mInteger ? getPersistedInt(Math.round(myDef)) : getPersistedFloat(myDef);
-        setValue(myValue);
+        setNumber(myValue);
     }
 
     @Override
@@ -214,7 +218,7 @@ public class FloatSeekBarPreference extends SeekBarPreference implements SeekBar
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
         float v = progressToValue(seekBar.getProgress());
-        setValue(v);
+        setNumber(v);
     }
 
 }
