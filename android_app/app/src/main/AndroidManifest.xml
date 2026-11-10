@@ -16,14 +16,14 @@
     <!-- Lets EpochRift Pocket read the film roll through RollProvider. Signature-level:
          granted only to an app signed with this app's key, never on request. -->
     <permission
-        android:name="se.lth.math.videoimucapture.permission.READ_ROLL"
+        android:name="${applicationId}.permission.READ_ROLL"
         android:protectionLevel="signature" />
 
     <!-- Lets EpochRift Pocket delete one session at a time through RollProvider, once the
          footage is safe elsewhere. Separate from READ_ROLL and signature-level too: the
          provider is exported, so without a write permission anything could delete. -->
     <permission
-        android:name="se.lth.math.videoimucapture.permission.DELETE_ROLL"
+        android:name="${applicationId}.permission.DELETE_ROLL"
         android:protectionLevel="signature" />
 
     <application
@@ -56,10 +56,10 @@
             android:parentActivityName=".RollActivity" />
         <provider
             android:name=".RollProvider"
-            android:authorities="se.lth.math.videoimucapture.roll"
+            android:authorities="${applicationId}.roll"
             android:exported="true"
-            android:readPermission="se.lth.math.videoimucapture.permission.READ_ROLL"
-            android:writePermission="se.lth.math.videoimucapture.permission.DELETE_ROLL" />
+            android:readPermission="${applicationId}.permission.READ_ROLL"
+            android:writePermission="${applicationId}.permission.DELETE_ROLL" />
     </application>
 
 </manifest>
