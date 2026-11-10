@@ -20,6 +20,7 @@ Android app**. Android-specific ideas are explained where they first come up, an
 | read the recorded data (folders, files, protobuf, timestamps) | [05 – Output data](05-output-data.md) |
 | build the APK, install it on a phone, run the tests | [06 – Building & installing](06-building-and-installing.md) |
 | calibrate the camera and IMU and convert recordings for SLAM | [07 – Calibration & analysis tools](07-calibration-and-tools.md) |
+| see measured values for the phones we've used (Pixel 6) | [08 – Tested devices](08-tested-devices.md) |
 
 ## Quick start
 
@@ -27,7 +28,7 @@ Android app**. Android-specific ideas are explained where they first come up, an
 docker/build.sh                                   # build the debug APK in Docker (no SDK on the host)
 adb install -r android_app/app/build/outputs/apk/debug/app-debug.apk
 # record on the phone, then copy the recordings to the computer:
-adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./sessions/
+adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./data/
 ```
 
 ## Where the code comes from

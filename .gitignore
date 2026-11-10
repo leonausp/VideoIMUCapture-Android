@@ -91,6 +91,9 @@ __pycache__
 
 # Pulled sessions for analysis/: photographs of wherever the phone was standing. Never committed.
 analysis/data/
+# Sessions pulled from the phone with adb (video, sensor data, location). Never committed.
+/data/
+/sessions/
 
 #Release
 android_app/app/release

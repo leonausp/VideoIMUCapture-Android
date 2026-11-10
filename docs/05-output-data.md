@@ -21,8 +21,10 @@ start with `test<cell>_`.
 Copy recordings to your computer:
 
 ```bash
-adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./sessions/
+adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./data/
 ```
+
+`data/` (and `sessions/`) at the repo root are git-ignored, so recordings never get committed by accident.
 
 > ⚠️ Android **deletes this folder when the app is uninstalled.** Always pull your data first.
 
@@ -177,3 +179,16 @@ Expected results:
 - |a| ≈ 9.81 while the phone is still.
 
 `calibration/data2statistics.py` prints a similar summary.
+
+### Known quirks
+
+These were seen in the first Pixel 6 recording; see [08 – Tested devices](08-tested-devices.md).
+
+- **The IMU starts about 130 ms after the first video frame.** The first ~4 frames have no IMU. The
+  likely cause: the app keeps a metadata row for frame 0 (from just before the press), while the IMU
+  queues are only cleared and started at the press. Drop the leading frames that have no IMU
+  before running VIO.
+- **The MP4 can contain one frame more than there are `video_meta` rows** (129 vs 128). Match by
+  `frame_number`, as `data2rosbag.py` does, and ignore frames without a row.
+- **`accel_bias` is all zeros** on phones whose OS doesn't estimate an accelerometer bias (Pixel 6).
+  `gyro_drift` is populated.

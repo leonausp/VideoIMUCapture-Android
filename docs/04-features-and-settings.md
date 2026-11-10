@@ -51,7 +51,7 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 | Setting | What it does | VIO recommendation |
 |---|---|---|
 | **Enable OIS** | optical image stabilization (the lens physically moves) | **off** if your phone allows it. OIS changes the effective intrinsics frame by frame. |
-| **Enable OIS data** | log the OIS lens-shift samples per frame | **on**. Some phones accept this but send no samples (S24 Ultra), so check the data. |
+| **Enable OIS data** | log the OIS lens-shift samples per frame | **on**. Some phones accept this but send no samples (S24 Ultra), so check the data. The Pixel 6 lists `android.statistics.oisSamples` as a result key, but this hasn't been tested yet. |
 | **Enable DVS** | digital/electronic stabilization (warps and crops the image) | **off, always**. EIS breaks the camera model. |
 
 Whatever you request, the **actually applied** OIS/EIS mode is stored per frame. You can prove
@@ -61,14 +61,14 @@ in your data that stabilization was off.
 
 | Setting | VIO recommendation |
 |---|---|
-| Auto Focus Mode: Continuous / Fix on Touch / Manual | **Manual** or **Fix on Touch**. Focus changes the focal length slightly, so keep it constant during a recording and between calibration and data. |
-| Focus Distance | for manual mode, e.g. hyperfocal or the typical scene distance |
+| Auto Focus Mode: Continuous / Fix on Touch / Manual | **Manual**. Focus changes the focal length measurably (on the Pixel 6, up to ~7%; see [lens breathing](#focus-changes-the-focal-length-lens-breathing)), so keep it constant during a recording and between calibration and data. With Fix on Touch, focus locks wherever you tapped; in our first test that was ~27 cm. |
+| Focus Distance | in **diopters** (1 / metres): 0 = infinity, 0.5 = 2 m, 3.65 = 27 cm. For a room, about 0.3–0.5 diopters (2–3 m). |
 
 ### Auto Exposure
 
 | Setting | VIO recommendation |
 |---|---|
-| Auto Exposure Mode / Exposure Time / ISO | Short exposure to limit motion blur (e.g. ≤ 5–10 ms), raising ISO if needed. Manual mode gives a stable frame rate. |
+| Auto Exposure Mode / Exposure Time / ISO | **Manual, about 3–8 ms**, raising ISO as needed. Auto exposure indoors picks the whole frame time: our first Pixel 6 test got **33.3 ms at ISO 711**, which blurs badly when moving. |
 | Freeze exposure while recording (default **on**) | on: one fixed exposure per clip, consistent images. Off only if light changes a lot during the recording. |
 | Blur budget (experimental, default off) | leave off unless you test it; untested on a moving phone |
 
@@ -152,6 +152,22 @@ session: Video only"**. Always check:
 - `focal_length_mm` and `active_physical_camera_id` in the frames;
 - the `camera.metadata_matches_video_lens` flag in `session.json` (see [05](05-output-data.md#lens-provenance)).
 
+### Focus changes the focal length (lens breathing)
+
+Moving the focus moves the lens, which changes the effective focal length. A single Pixel 6 test
+recording (960×1280, focus locked at 3.65 diopters ≈ 27 cm) contains three different values:
+
+| Source | fx (scaled to 960×1280) |
+|---|---:|
+| `camera_meta.intrinsic_params` (static factory calibration) | 876.7 px |
+| `est_focal_length_pix` (app's thin-lens estimate from the focus distance) | 912.9 px |
+| `lens_intrinsic_calibration` per frame (phone's dynamic value, 2980.8 × 0.3137) | 935.1 px |
+
+That's up to a 7% difference. So: **manual focus, the same value for calibration and data, and
+calibrate with Kalibr at that focus.** `lens_intrinsic_calibration` is stored in full-sensor,
+unrotated coordinates (4080×3072). Scale it by `resolution ÷ 4080` and rotate it like
+`intrinsic_params` before comparing.
+
 ### Orientation
 
 The app is locked to portrait, and phone camera sensors are usually mounted rotated
@@ -159,13 +175,16 @@ The app is locked to portrait, and phone camera sensors are usually mounted rota
 size you selected (e.g. 960×1280 instead of 1280×960). The app swaps fx/fy and cx/cy accordingly.
 Check `camera_meta.resolution` in your first recording.
 
-### Pixel 6 (our phone; not yet measured)
+### Pixel 6 (measured)
 
-Spec sheets give the main camera about **6.8 mm** physical focal length: a 50 MP sensor, normally
-used binned to 12.5 MP (4080×3072, 4:3). The ultrawide is about 114°. **Replace these numbers with the values from
-the Pixel 6's `camera_census.json` and a first recording**, including the physical camera IDs,
-timestamp source and OIS modes.
+| | Value |
+|---|---|
+| Main lens | physical camera **ID 2**, 6.81 mm, sensor 9.79×7.37 mm, 4080×3072 |
+| Ultrawide | physical camera **ID 3**, 2.35 mm |
+| Logical rear camera | ID **0** = {2, 3}, zoom 0.67–7.0 (below 1.0 means the ultrawide) |
+| Recommended Camera Lens setting | **Physical ID 2**. The logical camera reports zero distortion; ID 2 reports `[0.128, -0.198, 0.121, 0, 0]`. |
 
+All Pixel 6 values are collected in [08 – Tested devices](08-tested-devices.md).
 
 ## Things to check once per phone
 

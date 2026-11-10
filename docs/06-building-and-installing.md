@@ -72,7 +72,7 @@ Useful commands:
 adb logcat -s IMUManager Camera2Proxy RecordingWriter     # live logs from those classes (TAGs)
 adb shell getprop ro.product.model                        # phone model
 adb shell getprop ro.build.fingerprint                    # exact OS build (record it per campaign)
-adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./sessions/
+adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./data/
 ```
 
 ## Release builds and signing
