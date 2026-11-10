@@ -297,6 +297,10 @@ public class CameraCaptureActivity extends AppCompatActivity {
             if (bar != null && bar.getMenu().findItem(R.id.tests) != null) {
                 bar.getMenu().findItem(R.id.tests).setVisible(BuildConfig.STILLS_UI);
             }
+            // Recordings open from the gallery button next to RECORD, not the toolbar.
+            if (bar != null && bar.getMenu().findItem(R.id.roll) != null) {
+                bar.getMenu().findItem(R.id.roll).setVisible(false);
+            }
             return root;
         }
     }

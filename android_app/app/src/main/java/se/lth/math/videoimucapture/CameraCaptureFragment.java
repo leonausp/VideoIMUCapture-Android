@@ -188,6 +188,11 @@ public class CameraCaptureFragment extends Fragment
         highlightMode(modes.getMode());
 
         mTorchButton = view.findViewById(R.id.torch_button);
+        view.findViewById(R.id.gallery_button).setOnClickListener(v -> {
+            if (getActivity() != null) {
+                ((CameraCaptureActivity) getActivity()).showRoll(null);
+            }
+        });
         mTorchButton.setOnClickListener(v -> {
             Camera2Proxy proxy = getmCamera2Proxy();
             if (proxy == null || !proxy.torchAvailable()) {

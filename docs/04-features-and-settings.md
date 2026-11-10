@@ -25,8 +25,8 @@ previous fork's stills features are hidden:
 - the **TESTS** menu entry;
 - the "Stereo pair every (s)" setting.
 
-"Lenses in the session" defaults to **Video only**. **Roll** (browsing recordings on the phone)
-stays.
+"Lenses in the session" defaults to **Video only**. **Recordings** (the gallery button
+bottom left; browse, play and check sessions on the phone) stays.
 
 The code is still there. To bring the features back, set
 `buildConfigField "boolean", "STILLS_UI", "true"` in `android_app/app/build.gradle` and rebuild.
