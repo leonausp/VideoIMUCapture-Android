@@ -291,8 +291,10 @@ def export_session(sess, R, args, report):
     dist_from = getattr(cm, "distortion_camera_id", "")
     if len(lens_ids) == 1 and dist_from and dist_from != lens_ids[0]:
         say("WARNING: frames come from lens %s but the distortion is lens %s's" % (lens_ids[0], dist_from))
-    if lens_ids and not list(cm.distortion_params):
-        say("WARNING: no factory distortion recorded (old app version); start values use none")
+    if not list(cm.distortion_params):
+        say("WARNING: no factory distortion in the recording (the phone reports none, or an app "
+            "version before 2026-11-11); start values assume an undistorted lens. Calibrate the lens "
+            "(calibrate.sh cam/all) or let the SLAM system estimate it")
     if len(dist_sensor) >= 5:
         k1, k2, k3, p1, p2 = dist_sensor[:5]
         p1i, p2i = rotate_tangential(p1, p2, orient)
