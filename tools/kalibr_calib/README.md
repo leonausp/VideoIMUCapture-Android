@@ -19,10 +19,15 @@ tools/kalibr_calib/build.sh                      # once, 15-30 min: the Kalibr i
 tools/kalibr_calib/calibrate.sh --help           # the guide
 ```
 
-**1. Target.** `calibrate.sh target [--pdf]` writes `kalibr_target/target.png` at the built-in
-screen's resolution (detected; `--screen WxH` overrides), and with `--pdf` an A4 `target.pdf`.
-Show the PNG full screen (F11), or print the PDF at actual size and glue it flat. Both say below
-the grid how to measure: W = outermost black edge to outermost black edge, tag size = W / 8.1.
+**1. Target.** `calibrate.sh target` writes both, in `kalibr_target/`:
+
+- `target.pdf`, **recommended:** printed on A4 at actual size (100 %), its size is known (squares
+  3 cm, outermost edges 24.3 cm; check with a ruler, printers sometimes scale). Glue it flat.
+- `target.png`, **fastest:** for a screen, shown full screen (F11). Its size depends on the screen,
+  so measure it with a ruler; the image says how (W = outermost black edges, tag size = W / 8.1).
+
+The script lists the connected screens (built-in/external, resolution, size from the EDID), makes
+the PNG for the built-in one, and prints the `--screen WxH` command for each other screen.
 
 **2. Record** ~70 s, target still, exposure 2-3 ms: 0-30 s calm (grid in every part of the
 image), 30-70 s brisk (rotate and move along all axes; the grid may be partly out of view).

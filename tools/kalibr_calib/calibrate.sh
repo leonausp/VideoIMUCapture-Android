@@ -36,9 +36,9 @@ ${B}$ME${R}: calibrate a phone camera and its IMU with Kalibr.
 
 ${B}The short version${R} (one recording does everything):
 
-  ${B}1. Make the target${R}            $ME target [--pdf]
-       A grid of black squares (AprilGrid) as an image for your screen (target.png), and
-       with --pdf also as a sheet for printing (target.pdf). The image says how to measure it.
+  ${B}1. Make the target${R}            $ME target
+       A grid of black squares (AprilGrid), as a sheet to print (target.pdf, recommended: its
+       size is known) and as an image for a screen (target.png, fastest: measure it with a ruler).
 
   ${B}2. Record${R} about 70 s with the phone, target lying still, exposure 2-3 ms:
        0-30 s  calm: move the phone slowly so the grid visits every part of the image
@@ -48,7 +48,7 @@ ${B}The short version${R} (one recording does everything):
        --tag-size is the size you MEASURED, in metres. Takes 10-30 minutes.
 
 ${B}Commands${R}
-  target                     make target.png (and target.pdf with --pdf)
+  target                     make target.pdf (paper) and target.png (screen)
   all    <folder>            lens + camera-IMU from one recording       (recommended)
   cam    <folder>            lens only (focal length, distortion)
   imucam <folder>            camera-IMU only, using an existing lens calibration (--camchain)
@@ -62,8 +62,8 @@ ${B}Options${R}
   --camchain FILE            lens calibration for 'imucam' (Kalibr camchain.yaml)
   --target FILE              use another Kalibr target file instead (e.g. a checkerboard)
   --imu-yaml FILE            IMU noise values (Kalibr format); default: typical phone values
-  --pdf                      'target': also write the printable A4 sheet
-  --screen WxH               'target': screen resolution (default: detected)
+  --screen WxH               'target': screen resolution (default: the built-in screen)
+  --tag-size M               'target': square size on paper (default 0.03 = 3 cm)
   --cols N --rows N          grid size (default 6 x 4)
   --out DIR                  where results go (default: next to the folder)
   --cam-freq / --imu-freq    images per second Kalibr uses (default 5 / 15)
@@ -199,18 +199,23 @@ summary() {   # summary cam|imucam <prefix>
         || warn "Could not read the results for the summary; see the report PDF."
 }
 
-# Native resolution of the built-in screen (eDP/LVDS/DSI), else of the first connected one. Read
-# from the kernel (sysfs), which is right under Wayland too; xrandr there can report scaled modes.
-detect_screen() {
-    local d best=""
+# Connected screens, one per line: "<kind>|<connector>|<native resolution>|<size in cm or ?>",
+# built-in first. From the kernel (sysfs), which is right under Wayland too (xrandr there can
+# report scaled modes). The size comes from the screen's EDID (bytes 21/22, in cm) if present.
+list_screens() {
+    local d name kind res size w h
     for d in /sys/class/drm/card*-*; do
-        [[ -f $d/status && $(cat "$d/status") == connected && -s $d/modes ]] || continue
-        case $(basename "$d") in
-            *eDP*|*LVDS*|*DSI*) head -1 "$d/modes"; return ;;
-            *) [[ -z $best ]] && best=$(head -1 "$d/modes") ;;
-        esac
-    done
-    echo "$best"
+        [[ -f $d/status && $(cat "$d/status") == connected && -n $(head -1 "$d/modes" 2>/dev/null) ]] || continue
+        name=$(basename "$d"); name=${name#card*-}
+        case $name in eDP*|LVDS*|DSI*) kind=0 ;; *) kind=1 ;; esac
+        res=$(head -1 "$d/modes")
+        size="?"
+        if [[ -r $d/edid ]]; then   # sysfs files report size 0, so no -s
+            read -r w h < <(od -An -tu1 -j21 -N2 "$d/edid")
+            [[ ${w:-0} -gt 0 && ${h:-0} -gt 0 ]] && size="${w} x ${h} cm"
+        fi
+        echo "$kind|$name|$res|$size"
+    done | sort -t'|' -k1,1 -k2,2 | sed -e 's/^0|/built-in|/' -e 's/^1|/external|/'
 }
 
 write_target_yaml() {
@@ -232,30 +237,57 @@ EOT
 # ---------------------------------------------------------------------------------------------
 if [[ $MODE == target ]]; then
     title "Calibration target"
-    if [[ -z $SCREEN ]]; then
-        SCREEN=$(detect_screen); SCREEN=${SCREEN:-1920x1080}
-        info "Screen: ${B}$SCREEN${R} ${DIM}(detected; for another screen add --screen WxH)${R}"
+    info "Two ways to show the target to the camera:"
+    echo
+    step "Paper " "${B}recommended${R}. Printed at actual size (100 %), its size is known: each big square"
+    step "      " "is $(awk -v t="$TAG_SIZE" 'BEGIN{printf "%.2f", t*100}') cm. Glue it flat onto cardboard."
+    step "Screen" "${B}fastest${R}, no printer. The size depends on the screen, so you MEASURE it with a"
+    step "      " "ruler. Shown full screen, the image fills the screen and says how to measure it."
+
+    title "Screens"
+    mapfile -t SCREENS < <(list_screens)
+    if [[ ${#SCREENS[@]} -eq 0 ]]; then
+        info "No screen detected (e.g. over SSH)."
     else
-        info "Screen: ${B}$SCREEN${R}"
+        for l in "${SCREENS[@]}"; do
+            IFS='|' read -r kind name res size <<< "$l"
+            info "$(printf '%-9s %-10s %-10s %s' "$kind" "$name" "$res" "$size")"
+        done
     fi
-    pdf_args=""
-    [[ $PDF == 1 ]] && pdf_args="--pdf target.pdf --tag-size $TAG_SIZE"
+    if [[ -z $SCREEN ]]; then
+        if [[ ${#SCREENS[@]} -gt 0 ]]; then
+            IFS='|' read -r kind name SCREEN size <<< "${SCREENS[0]}"
+            info "Making the screen image for: ${B}$kind screen $name, $SCREEN${R}"
+        else
+            SCREEN=1920x1080
+            info "Making the screen image for: ${B}$SCREEN${R} (default)"
+        fi
+        for l in "${SCREENS[@]:1}"; do
+            IFS='|' read -r kind name res size <<< "$l"
+            info "${DIM}For the $kind screen $name instead:  $ME target --screen $res${R}"
+        done
+    else
+        info "Making the screen image for: ${B}$SCREEN${R} (--screen)"
+    fi
+
+    title "Making it"
     : > "$LOG"
     run_step "Drawing the target and checking it with Kalibr's detector" "" \
-        "python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png $pdf_args --check"
-    ok "target.png  for the screen"
-    [[ $PDF == 1 ]] && ok "target.pdf  for printing (A4)"
+        "python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png \
+         --pdf target.pdf --tag-size $TAG_SIZE --check"
+    ok "target.pdf  for paper (A4)"
+    ok "target.png  for the screen ($SCREEN)"
     info "${DIM}in $(pretty "$OUT")${R}"
 
     title "Next steps"
-    step "1." "Show it:  open target.png and press F11 (full screen), brightness up, no reflections."
-    [[ $PDF == 1 ]] && \
-    step "  " "Or print target.pdf at ACTUAL SIZE (100 %, not 'fit to page') and glue it flat on cardboard."
-    step "2." "Measure:  W = width from the outermost black edge to the outermost black edge."
-    step "  " "          tag size = W / 8.1    e.g. 26.0 cm / 8.1 = 3.21 cm  ->  0.0321 m"
-    step "3." "Record:   ~70 s, target still, exposure 2-3 ms:"
-    step "  " "          0-30 s calm (grid in every part of the image), 30-70 s brisk (all axes)."
-    step "4." "Calibrate: $ME all <folder> --tag-size 0.0321 --cam-until 30"
+    step "1." "Paper:   print target.pdf at ACTUAL SIZE (100 %, not 'fit to page'), glue it flat."
+    step "  " "         Check with a ruler: outermost black edges W = $(awk -v t="$TAG_SIZE" 'BEGIN{printf "%.2f", t*810}') cm (printers sometimes scale)."
+    step "  " "Screen:  open target.png, press F11 (full screen), brightness up, no reflections."
+    step "  " "         Measure W = outermost black edge to outermost black edge, with a ruler."
+    step "2." "Tag size = W / 8.1, in metres.  Paper: $TAG_SIZE (if W matched).  Screen: e.g. 26.0 cm -> 0.0321"
+    step "3." "Record ~70 s, target still, exposure 2-3 ms:"
+    step "  " "         0-30 s calm (grid in every part of the image), 30-70 s brisk (all axes)."
+    step "4." "Calibrate:  $ME all <recording> --tag-size <tag size> --cam-until 30"
     echo
     exit 0
 fi
