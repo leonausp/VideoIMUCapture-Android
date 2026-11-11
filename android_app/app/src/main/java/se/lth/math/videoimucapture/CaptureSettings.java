@@ -95,7 +95,7 @@ public class CaptureSettings extends PreferenceFragmentCompat {
 
 
     private static final String[] EXPERT_CATEGORIES = {
-            "general_category", "stabilization_category", "focus_category",
+            "general_category", "stabilization_category",
             "exposure_category", "recording_category",
     };
 

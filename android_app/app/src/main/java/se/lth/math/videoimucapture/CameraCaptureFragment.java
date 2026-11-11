@@ -838,13 +838,17 @@ public class CameraCaptureFragment extends Fragment
     // change mid-clip would change the data. ISO + / - means MANUAL; AUTO means shutter priority;
     // changing the exposure time in an automatic mode switches to shutter priority.
 
-    private com.google.android.material.button.MaterialButton mExposureChip, mIsoChip;
+    private com.google.android.material.button.MaterialButton mExposureChip, mIsoChip, mFocusChip;
     private View mExposurePanel;
     private TextView mPanelValue;
-    private android.widget.Button mPanelAuto;
+    private android.widget.Button mPanelAuto, mPanelAf;
     private String mPanelParam = null;   // "exp", "iso" or null (closed)
 
     private void setUpExposureControls(View view) {
+        mFocusChip = view.findViewById(R.id.focus_chip);
+        mPanelAf = view.findViewById(R.id.panel_af);
+        mFocusChip.setOnClickListener(v -> togglePanel("focus"));
+        mPanelAf.setOnClickListener(v -> setFocusMode("CONTINUOUS_AUTO"));
         mExposureChip = view.findViewById(R.id.exposure_chip);
         mIsoChip = view.findViewById(R.id.iso_chip);
         mExposurePanel = view.findViewById(R.id.exposure_panel);
@@ -855,6 +859,10 @@ public class CameraCaptureFragment extends Fragment
         view.findViewById(R.id.panel_minus).setOnClickListener(v -> stepPanel(-1));
         view.findViewById(R.id.panel_plus).setOnClickListener(v -> stepPanel(+1));
         mPanelAuto.setOnClickListener(v -> {
+            if ("focus".equals(mPanelParam)) {
+                setFocusMode("TOUCH_AUTO");   // the button reads TAP in the focus bar
+                return;
+            }
             prefs().edit().putString("exposure_mode", "SHUTTER_PRIORITY").apply();
             applyExposure();
         });
@@ -867,8 +875,8 @@ public class CameraCaptureFragment extends Fragment
 
     private void togglePanel(String param) {
         if (mRecordingEnabled) {
-            android.widget.Toast.makeText(getActivity(), "Exposure is locked while recording",
-                    android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(getActivity(), ("focus".equals(param) ? "Focus" : "Exposure")
+                    + " is locked while recording", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         mPanelParam = param.equals(mPanelParam) ? null : param;
@@ -902,7 +910,89 @@ public class CameraCaptureFragment extends Fragment
         return prefs().getInt("iso", RecommendedDefaults.ISO);
     }
 
+    // --- Focus button: tap to focus / AF / a fixed distance (all locked while recording) ---
+
+    private static final float FOCUS_STEP = 0.1f;
+
+    private String focusMode() {
+        return prefs().getString("focus_mode", RecommendedDefaults.FOCUS_MODE);
+    }
+
+    /** Focus range in diopters [0, closest], or null for a fixed-focus or unknown lens. */
+    private Float focusMax() {
+        CameraSettingsManager m = getmCameraSettingsManager();
+        Float max = m == null ? null : m.getMinFocusDistance();
+        return (max == null || max <= 0f) ? null : max;
+    }
+
+    /** The distance the bar shows: the manual value, or where autofocus has the lens now. */
+    private float currentFocus() {
+        if ("MANUAL".equals(focusMode())) {
+            return prefs().getFloat("focus_distance", RecommendedDefaults.FOCUS_DISTANCE);
+        }
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        Float d = proxy != null ? proxy.getLastFocusDistance() : null;
+        return d != null ? d : prefs().getFloat("focus_distance", RecommendedDefaults.FOCUS_DISTANCE);
+    }
+
+    private void setFocusMode(String mode) {
+        prefs().edit().putString("focus_mode", mode).apply();
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        if (proxy != null) {
+            proxy.applySettingsNow();
+            if ("TOUCH_AUTO".equals(mode)) {
+                proxy.requestCentreFocus();
+            }
+        }
+        refreshExposureControls();
+    }
+
+    private void setManualFocus(float diopters) {
+        Float max = focusMax();
+        if (max == null) {
+            android.widget.Toast.makeText(getActivity(), "This lens has a fixed focus",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        float d = Math.max(0f, Math.min(max, Math.round(diopters * 100f) / 100f));
+        // A fixed value must not be overridden by the computed hyperfocal.
+        prefs().edit().putFloat("focus_distance", d).putBoolean("focus_hyperfocal", false)
+                .putString("focus_mode", "MANUAL").apply();
+        applyExposure();
+    }
+
+    private void typeFocusValue() {
+        Float max = focusMax();
+        if (max == null || getActivity() == null) {
+            return;
+        }
+        android.widget.EditText input = new android.widget.EditText(getActivity());
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setText(String.format(Locale.US, "%.2f", currentFocus()));
+        input.setSelectAllOnFocus(true);
+        new android.app.AlertDialog.Builder(getActivity())
+                .setTitle("Focus distance (diopters, the phone's scale)")
+                .setMessage(String.format(Locale.US, "Range 0 – %.2f. Bigger = closer. On the Pixel 6 main "
+                        + "lens about 0.4 is infinity and 1.1 is about 1.5 m.", max))
+                .setView(input)
+                .setPositiveButton("OK", (d, w) -> {
+                    try {
+                        setManualFocus(Float.parseFloat(input.getText().toString().trim().replace(',', '.')));
+                    } catch (NumberFormatException ignored) {
+                        // nothing sensible typed: keep the current focus
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+        input.requestFocus();
+    }
+
     private void stepPanel(int dir) {
+        if ("focus".equals(mPanelParam)) {
+            setManualFocus(currentFocus() + dir * FOCUS_STEP);
+            return;
+        }
         if ("exp".equals(mPanelParam)) {
             SliderSteps s = exposureSteps();
             if (s == null) {
@@ -944,6 +1034,10 @@ public class CameraCaptureFragment extends Fragment
 
     private void typePanelValue() {
         if (mPanelParam == null || getActivity() == null) {
+            return;
+        }
+        if ("focus".equals(mPanelParam)) {
+            typeFocusValue();
             return;
         }
         boolean exp = "exp".equals(mPanelParam);
@@ -1019,10 +1113,22 @@ public class CameraCaptureFragment extends Fragment
         boolean enabled = !mRecordingEnabled;
         mExposureChip.setAlpha(enabled ? 1f : 0.5f);
         mIsoChip.setAlpha(enabled ? 1f : 0.5f);
+        String fm = focusMode();
+        boolean fixedLens = focusMax() == null && getmCameraSettingsManager() != null;
+        if (fixedLens) {
+            mFocusChip.setText("Focus: fixed lens");
+        } else if ("MANUAL".equals(fm)) {
+            mFocusChip.setText(String.format(Locale.US, "Focus %.2f", currentFocus()));
+        } else {
+            mFocusChip.setText("CONTINUOUS_AUTO".equals(fm) ? "Focus: AF" : "Focus: tap");
+        }
+        mFocusChip.setAlpha(enabled ? 1f : 0.5f);
         if (!enabled) {
             mPanelParam = null;
         }
         mExposurePanel.setVisibility(mPanelParam == null ? View.GONE : View.VISIBLE);
+        mPanelAf.setVisibility("focus".equals(mPanelParam) ? View.VISIBLE : View.GONE);
+        mPanelAuto.setText("focus".equals(mPanelParam) ? R.string.focus_tap : R.string.exposure_auto);
         if ("exp".equals(mPanelParam)) {
             mPanelValue.setText(formatMs(ms));
             mPanelAuto.setVisibility(View.GONE);
@@ -1030,6 +1136,12 @@ public class CameraCaptureFragment extends Fragment
             mPanelValue.setText(sp ? "auto " + currentIso() : String.valueOf(currentIso()));
             mPanelAuto.setVisibility(View.VISIBLE);
             mPanelAuto.setAlpha(sp ? 1f : 0.6f);
+        } else if ("focus".equals(mPanelParam)) {
+            boolean man = "MANUAL".equals(fm);
+            mPanelValue.setText(String.format(Locale.US, man ? "%.2f dpt" : "now %.2f", currentFocus()));
+            mPanelAuto.setVisibility(View.VISIBLE);
+            mPanelAuto.setAlpha("TOUCH_AUTO".equals(fm) ? 1f : 0.6f);
+            mPanelAf.setAlpha("CONTINUOUS_AUTO".equals(fm) ? 1f : 0.6f);
         }
     }
 

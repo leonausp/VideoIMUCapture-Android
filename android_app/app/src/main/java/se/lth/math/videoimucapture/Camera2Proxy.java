@@ -728,6 +728,17 @@ public class Camera2Proxy {
         return mFocusLocked;
     }
 
+    /** Where the lens is now (diopters, the phone's scale), from the last result; or null. */
+    public Float getLastFocusDistance() {
+        TotalCaptureResult r = mLastResult;
+        return r != null ? r.get(CaptureResult.LENS_FOCUS_DISTANCE) : null;
+    }
+
+    /** Tap to focus: focus on the image centre again with the next result (e.g. mode change). */
+    public void requestCentreFocus() {
+        mStartFocusDone = false;
+    }
+
     /** Record end: back to auto exposure as the light meter. */
     public void releaseShutterPriority() {
         if (mShutterPriorityLocked) {
@@ -1431,10 +1442,14 @@ public class Camera2Proxy {
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
         }
         // Update running requests with metering regions
+        // The session can vanish between the check above and here (a tap while the camera
+        // reopens after sleep or an app switch): reissuePreview() then throws
+        // IllegalStateException, which crashed the app (2026-11-11). Drop the tap instead.
         try {
             reissuePreview();
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
+        } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+            Log.w(TAG, "focus/metering point dropped: " + e);
+            return;
         }
 
         // Send triggers
@@ -1446,8 +1461,8 @@ public class Camera2Proxy {
                 mCaptureSession.capture(
                         mPreviewRequestBuilder.build(),
                         mSessionCaptureCallback, mBackgroundHandler);
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
+            } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+                Log.w(TAG, "autofocus trigger dropped: " + e);
             }
 
             // Reset Trigger state for future requests

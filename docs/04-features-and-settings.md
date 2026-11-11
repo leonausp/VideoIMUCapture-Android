@@ -44,6 +44,20 @@ current mode instead (`walk_vid_<date>` etc.).
 | **OBJECT** | One press = focus stack + exposure bracket + RAW, for a stationary subject | same |
 | **PANO** | Tripod/gimbal: stillness-triggered with an exposure bracket per position | same |
 
+## Focus on the main screen
+
+The top button of the stack in the bottom-right corner shows the focus: **"Focus: tap"** (default),
+**"Focus: AF"** or **"Focus 1.10"** (a fixed value). Tapping it opens a bar:
+
+- **TAP**: tap to focus. The preview focuses once on the image centre, then wherever you tap.
+- **AF**: continuous autofocus.
+- **−** / value / **+**: a fixed focus in 0.1 steps (diopters on the phone's scale, bigger = closer),
+  starting from where the lens is now, so you can tap to focus and then freeze exactly that. Tap
+  the value to type one. "Focus: fixed lens" means the lens has no focus to set (Pixel 6 ultrawide).
+
+In every mode the focus is **locked when you press RECORD** and stays put for the whole clip; taps
+are ignored while recording.
+
 ## Exposure on the main screen
 
 Two stacked buttons in the **bottom-right corner**, level with RECORD, show the **exposure time**
@@ -71,9 +85,11 @@ The **default mode is shutter priority**:
 
 The screen has a **basic section** at the top:
 - **Exposure Time** and **ISO**, the values you change per scene;
+- **Focus**: tap to focus (default), AF, or Manual with a distance, all locked when recording;
+  the same choice as the focus button on the main screen;
 - **Zoom ratio** (below 1 = wide lens);
 - **Show expert settings**, a switch that reveals all the categories below (lens, video size,
-  stabilisation, focus, exposure mode, recording);
+  stabilisation, exposure mode, recording);
 - **Reset to recommended settings**, which puts everything back to the recommended values for
   VIO: main lens, Video only, 1280×960, shutter priority at 5 ms (manual ISO starts at 300), manual
   tap to focus (locked when recording), OIS off with OIS data on, no EIS or distortion correction.
