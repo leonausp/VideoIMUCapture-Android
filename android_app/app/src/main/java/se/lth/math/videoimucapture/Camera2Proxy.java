@@ -968,7 +968,7 @@ public class Camera2Proxy {
             // as outputs at configuration time, even though they only receive frames when a
             // burst is fired.
             String lensSet = PreferenceManager
-                    .getDefaultSharedPreferences(mActivity).getString("lens_set", "none");
+                    .getDefaultSharedPreferences(mActivity).getString("lens_set", RecommendedDefaults.LENS_SET);
             LensRoles.setAllLensShot("all".equals(lensSet));
             // "none" = video only: the session holds the video stream and nothing else. Every
             // extra stream is a constraint on the HAL; on the Pixel 6 the logical camera with

@@ -46,6 +46,19 @@ current mode instead (`walk_vid_<date>` etc.).
 
 ## Settings (gear icon)
 
+The screen has a **basic section** at the top:
+- **Exposure Time** and **ISO**, the values you change per scene;
+- **Zoom ratio** (below 1 = wide lens);
+- **Show expert settings**, a switch that reveals all the categories below (lens, video size,
+  stabilisation, focus, exposure mode, recording);
+- **Reset to recommended settings**, which puts everything back to the values the Pixel 6 VIO
+  test recordings were made with: main lens, Video only, 1280×960, manual 5 ms / ISO 1000, manual
+  focus at hyperfocal, OIS off with OIS data on, no EIS or distortion correction.
+
+These defaults live in one place, `RecommendedDefaults.java`. A unit test checks them, and also
+checks that `settings.xml` declares the same defaults.
+
+
 These are defined in `android_app/app/src/main/res/xml/settings.xml`. The **VIO recommendation**
 column is our suggestion for SLAM datasets; check each one on your phone.
 

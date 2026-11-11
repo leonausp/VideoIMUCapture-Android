@@ -587,7 +587,7 @@ public class IMUManager extends SensorEventCallback {
      */
     private int batchLatencyUs() {
         int ms = PreferenceManager
-                .getDefaultSharedPreferences(mAppContext).getInt("imu_batch_ms", 0);
+                .getDefaultSharedPreferences(mAppContext).getInt("imu_batch_ms", RecommendedDefaults.IMU_BATCH_MS);
         if (ms <= 0) {
             return 0;
         }

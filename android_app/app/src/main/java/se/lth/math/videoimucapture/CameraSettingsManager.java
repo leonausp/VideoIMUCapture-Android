@@ -87,7 +87,7 @@ public class CameraSettingsManager {
                         cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION),
                         CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON,
                         CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
-                        false
+                        RecommendedDefaults.OIS
                 )
         );
 
@@ -113,7 +113,7 @@ public class CameraSettingsManager {
                             oisDataModes,
                             CameraMetadata.STATISTICS_OIS_DATA_MODE_ON,
                             CaptureRequest.STATISTICS_OIS_DATA_MODE,
-                            false
+                            RecommendedDefaults.OIS_DATA
                 )
             );
         } else {
@@ -128,7 +128,7 @@ public class CameraSettingsManager {
                         cameraCharacteristics.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES),
                         CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON,
                         CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                        false
+                        RecommendedDefaults.DVS
                 )
         );
 
@@ -140,7 +140,7 @@ public class CameraSettingsManager {
                             CameraMetadata.DISTORTION_CORRECTION_MODE_HIGH_QUALITY,
                             CameraMetadata.DISTORTION_CORRECTION_MODE_OFF,
                             CaptureRequest.DISTORTION_CORRECTION_MODE,
-                            false
+                            RecommendedDefaults.DISTORTION_CORRECTION
                     )
             );
         } else {
@@ -335,10 +335,10 @@ class CameraSettingVideoSize extends CameraSetting {
     private static final String LOGICAL_ID = "Logical"; // same sentinel as CameraSettingPhysicalCamera
 
     private List<Size> mValidSizes;
-    private static Size DEFAULT_VIDEO_SIZE = new Size(1280, 960);
+    private static Size DEFAULT_VIDEO_SIZE = Size.parseSize(RecommendedDefaults.VIDEO_SIZE);
     private final String mSizePrefKey = "video_size";
     private final String mMaxSensorPrefKey = "use_full_sensor";
-    private final boolean DEFAULT_MAX_SENSOR = true;
+    private final boolean DEFAULT_MAX_SENSOR = RecommendedDefaults.USE_FULL_SENSOR;
     private Rect mArraySensorSize;
     // Which lens the size list was built for: "Logical" or a physical camera id.
     private String mLensId = LOGICAL_ID;
@@ -568,8 +568,9 @@ class CameraSettingFocusMode extends CameraSetting {
 
     enum FocusMode {CONTINUOUS_AUTO, TOUCH_AUTO, MANUAL}
     private List<FocusMode> mValidModes = new ArrayList<>();
-    private final FocusMode DEFAULT_FOCUS_MODE = FocusMode.TOUCH_AUTO;
-    private final float DEFAULT_FOCUS_DISTANCE = 0;
+    // Set in the constructor: the recommended mode where the lens supports it.
+    private FocusMode DEFAULT_FOCUS_MODE = FocusMode.TOUCH_AUTO;
+    private final float DEFAULT_FOCUS_DISTANCE = RecommendedDefaults.FOCUS_DISTANCE;
     private final float FOCUS_RESOLUTION = 0.1f;
     private Float mMinFocusDistance;
     private final String mModePrefKey = "focus_mode";
@@ -596,6 +597,12 @@ class CameraSettingFocusMode extends CameraSetting {
             }
         }
         Collections.sort(mValidModes);
+        FocusMode recommended = FocusMode.valueOf(RecommendedDefaults.FOCUS_MODE);
+        if (mValidModes.contains(recommended)) {
+            DEFAULT_FOCUS_MODE = recommended;
+        } else if (!mValidModes.isEmpty() && !mValidModes.contains(DEFAULT_FOCUS_MODE)) {
+            DEFAULT_FOCUS_MODE = mValidModes.get(0);
+        }
 
         //Check valid range
         mMinFocusDistance = cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
@@ -630,7 +637,8 @@ class CameraSettingFocusMode extends CameraSetting {
 
     private float getFocusDistance() {
         if (mHyperfocalDiopters != null
-                && mSharedPreferences.getBoolean(mHyperfocalPrefKey, false)) {
+                && mSharedPreferences.getBoolean(mHyperfocalPrefKey,
+                        RecommendedDefaults.FOCUS_HYPERFOCAL)) {
             return mHyperfocalDiopters;
         }
         return mSharedPreferences.getFloat(mDistancePrefKey, DEFAULT_FOCUS_DISTANCE);
@@ -756,12 +764,13 @@ class CameraSettingExposureMode extends CameraSetting {
 
     enum Mode {CONTINUOUS_AUTO, TOUCH_AUTO, MANUAL}
     private List<Mode> mValidModes = new ArrayList<>();
-    private final Mode DEFAULT_MODE = Mode.TOUCH_AUTO;
-    private float DEFAULT_EXPOSURE_MS = 5f;
+    // Set in the constructor: the recommended mode where the camera supports it.
+    private Mode DEFAULT_MODE = Mode.TOUCH_AUTO;
+    private float DEFAULT_EXPOSURE_MS = RecommendedDefaults.EXPOSURE_MS;
     // Kept on purpose: an exposure longer than the frame period (33.3 ms at 30 fps) would make
     // the sensor drop its frame rate, and VIO needs a steady 30 fps.
     private float MAX_EXPOSURE_MS =30f; // 30ms, More is not feasible given 30 fps requirement.
-    private int DEFAULT_ISO =200;
+    private int DEFAULT_ISO = RecommendedDefaults.ISO;
     // No ISO cap: the slider covers the device's whole SENSOR_INFO_SENSITIVITY_RANGE (Pixel 6:
     // 44..11377). A 2000 cap (upstream, 2020) forced a choice between dark frames and motion
     // blur indoors at short exposures, where ~3000-5000 is typical. Steps are 1/3 stops.
@@ -788,6 +797,10 @@ class CameraSettingExposureMode extends CameraSetting {
             }
         }
         Collections.sort(mValidModes);
+        Mode recommended = Mode.valueOf(RecommendedDefaults.EXPOSURE_MODE);
+        if (mValidModes.contains(recommended)) {
+            DEFAULT_MODE = recommended;
+        }
 
         //Set default value
         if (mRestoreDefault || !mSharedPreferences.contains(mModePrefKey)) {
@@ -943,7 +956,7 @@ class CameraSettingExposureMode extends CameraSetting {
 }
 
 class CameraSettingZoomRatio extends CameraSetting {
-    private final float DEFAULT_ZOOM_RATIO = 1.0f;
+    private final float DEFAULT_ZOOM_RATIO = RecommendedDefaults.ZOOM_RATIO;
     private final float ZOOM_RESOLUTION = 0.1f;
     private Range<Float> mZoomRange;
 

@@ -73,6 +73,80 @@ public class CaptureSettings extends PreferenceFragmentCompat {
         CameraSettingsManager cameraSettingsManager = ((CameraCaptureActivity) getActivity()).getmCameraSettingsManager();
         cameraSettingsManager.updatePreferences(getPreferenceScreen());
 
+        // Basic vs expert: the expert categories are shown only with the switch on. Visibility is
+        // set on the CATEGORIES, so settings the camera code hides inside them stay hidden.
+        androidx.preference.SwitchPreferenceCompat expert = findPreference("show_expert_settings");
+        if (expert != null) {
+            setExpertVisible(expert.isChecked());
+            expert.setOnPreferenceChangeListener((pref, value) -> {
+                setExpertVisible((Boolean) value);
+                return true;
+            });
+        }
+        androidx.preference.Preference reset = findPreference("reset_defaults");
+        if (reset != null) {
+            reset.setOnPreferenceClickListener(pref -> {
+                confirmReset();
+                return true;
+            });
+        }
+
+    }
+
+
+    private static final String[] EXPERT_CATEGORIES = {
+            "general_category", "stabilization_category", "focus_category",
+            "exposure_category", "recording_category",
+    };
+
+    private void setExpertVisible(boolean visible) {
+        for (String key : EXPERT_CATEGORIES) {
+            androidx.preference.Preference c = findPreference(key);
+            if (c != null) {
+                c.setVisible(visible);
+            }
+        }
+    }
+
+    /**
+     * Back to RecommendedDefaults: every setting on this screen is removed from the stored
+     * preferences, then the camera screen is rebuilt, which writes each default afresh (the
+     * settings classes store their default when a key is missing). Test-matrix history and
+     * other non-setting state are kept.
+     */
+    private void confirmReset() {
+        new android.app.AlertDialog.Builder(requireContext())
+                .setTitle("Reset to recommended settings?")
+                .setMessage("All camera settings return to the recommended values. Recordings are not affected.")
+                .setPositiveButton("Reset", (d, w) -> resetToDefaults())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void resetToDefaults() {
+        android.content.SharedPreferences prefs =
+                androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+        android.content.SharedPreferences.Editor e = prefs.edit();
+        java.util.ArrayDeque<androidx.preference.Preference> todo = new java.util.ArrayDeque<>();
+        todo.add(getPreferenceScreen());
+        while (!todo.isEmpty()) {
+            androidx.preference.Preference p = todo.poll();
+            if (p.getKey() != null && !"reset_defaults".equals(p.getKey())) {
+                e.remove(p.getKey());
+            }
+            if (p instanceof androidx.preference.PreferenceGroup) {
+                androidx.preference.PreferenceGroup g = (androidx.preference.PreferenceGroup) p;
+                for (int i = 0; i < g.getPreferenceCount(); i++) {
+                    todo.add(g.getPreference(i));
+                }
+            }
+        }
+        e.commit();   // synchronously: the rebuilt screen must not read the old values
+        android.widget.Toast.makeText(requireContext(), "Settings reset to recommended values",
+                android.widget.Toast.LENGTH_SHORT).show();
+        androidx.fragment.app.FragmentActivity a = requireActivity();
+        a.getSupportFragmentManager().popBackStackImmediate();
+        a.recreate();
     }
 
 }
