@@ -278,6 +278,22 @@ public final class SessionSummary {
         return cell != null ? "test " + cell + " " + kind : kind;
     }
 
+    /** Recording length for the list: "4.3 s" under a minute, "2:05 min" above, or "no video". */
+    public String lengthText() {
+        return lengthText(video != null ? videoMs : 0);
+    }
+
+    static String lengthText(long ms) {
+        if (ms <= 0) {
+            return "no video";
+        }
+        if (ms < 60_000) {
+            return String.format(Locale.US, "%.1f s", ms / 1000.0);
+        }
+        long s = Math.round(ms / 1000.0);
+        return String.format(Locale.US, "%d:%02d min", s / 60, s % 60);
+    }
+
     public String sizeText() {
         if (bytes >= 1L << 30) {
             return String.format(Locale.US, "%.2f GB", bytes / (double) (1L << 30));
