@@ -18,8 +18,10 @@ so any source works (`tools/pb3_export`, or another project's importer).
 tools/kalibr_calib/build.sh        # once, ~15-30 min: image zf-kalibr:<commit> (8 GB)
 
 # 1. Target (or skip, and pass an existing Kalibr target yaml with --target FILE)
-tools/kalibr_calib/calibrate.sh target --tag-size 0.03            # -> kalibr_target/target.pdf
-#    show it full screen or print it, MEASURE one tag's black edge, use that as --tag-size
+tools/kalibr_calib/calibrate.sh target [--screen 1920x1080]   # -> kalibr_target/target.png + .pdf
+#    show target.png full screen (F11 / slideshow, no toolbar) or print the PDF. MEASURE from the
+#    outermost black edge to the outermost black edge (the small corner squares):
+#    6 columns: tag size = width / 8.1 (check: 4 rows, height / 5.5). That is --tag-size [m].
 
 # 2. Camera intrinsics (pinhole-radtan), Kalibr uses 5 images/s
 tools/kalibr_calib/calibrate.sh cam    <euroc_dir> --tag-size 0.031
@@ -39,6 +41,9 @@ Allan-variance result.
 
 `--camchain` can be any Kalibr camchain file, including one from another intrinsics tool, as long as
 its resolution matches the images.
+
+`aprilgrid_png.py` draws the PNG from Kalibr's own tag codes and layout on whole pixels, and checks
+it with Kalibr's detector (`--check`; all 96 corners at 1920×1080, 1366×768, 1280×800).
 
 ## Timestamps
 

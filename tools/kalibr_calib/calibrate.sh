@@ -3,9 +3,10 @@
 # (columns: t_ns, gx gy gz [rad/s], ax ay az [m/s^2]; first line is a header).
 # Self-contained: needs only Docker and the image from build.sh (same folder).
 #
-#   calibrate.sh target --tag-size M [--cols 6 --rows 4] [--out DIR]
-#       AprilGrid PDF + target.yaml. Show it full screen or print it, then MEASURE one tag's
-#       black edge in metres: that measured value is the --tag-size for the next steps.
+#   calibrate.sh target [--cols 6 --rows 4] [--screen 1920x1080] [--out DIR]
+#       AprilGrid as target.png (for showing full screen: F11 / slideshow) and target.pdf (for
+#       printing). Then MEASURE from outermost black edge to outermost black edge (the small corner
+#       squares) and divide as printed (6 columns: width / 8.1): that is --tag-size in metres.
 #   calibrate.sh cam    <euroc_dir> --tag-size M [--cols 6 --rows 4] [--freq 5] [--out DIR]
 #       camera intrinsics (pinhole-radtan)          -> DIR/cam-camchain.yaml
 #   calibrate.sh imucam <euroc_dir> --tag-size M --camchain FILE [--freq 15] [--out DIR]
@@ -37,12 +38,13 @@ if [[ $MODE != target ]]; then
         || { echo "$IN: expected cam0/data/*.png and imu0/data.csv" >&2; exit 1; }
 fi
 
-TAG_SIZE="" COLS=6 ROWS=4 FREQ="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
+SCREEN=1920x1080 TAG_SIZE="" COLS=6 ROWS=4 FREQ="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --tag-size) TAG_SIZE=$2; shift 2 ;;
         --cols)     COLS=$2; shift 2 ;;
         --rows)     ROWS=$2; shift 2 ;;
+        --screen)   SCREEN=$2; shift 2 ;;
         --freq)     FREQ=$2; shift 2 ;;
         --camchain) CAMCHAIN=$(abspath "$2"); shift 2 ;;
         --imu-yaml) IMU_YAML=$(abspath "$2"); shift 2 ;;
@@ -54,6 +56,8 @@ while [[ $# -gt 0 ]]; do
 done
 if [[ -n "$TARGET" ]]; then
     [[ $MODE != target && -f "$TARGET" ]] || { echo "--target needs an existing yaml (not with 'target')" >&2; exit 1; }
+elif [[ $MODE == target ]]; then
+    TAG_SIZE=${TAG_SIZE:-0.03}   # only the PDF's nominal size; the measured value is what counts
 else
     [[ -n "$TAG_SIZE" ]] || { echo "--tag-size is required (metres, black edge of one tag), or --target FILE" >&2; exit 1; }
 fi
@@ -66,7 +70,7 @@ fi
 
 # Run bash in the Kalibr container as the calling user: /work = OUT, /in = input (read-only).
 kalibr() {
-    local mounts=(-v "$OUT:/work")
+    local mounts=(-v "$OUT:/work" -v "$HERE:/tool:ro")
     [[ -n "$IN" ]] && mounts+=(-v "$IN:/in:ro")
     docker run --rm --user "$(id -u):$(id -g)" \
         -e HOME=/tmp -e ROS_HOME=/tmp/.ros -e MPLBACKEND=Agg \
@@ -84,9 +88,9 @@ EOT
 fi
 
 if [[ $MODE == target ]]; then
-    kalibr "rosrun kalibr kalibr_create_target_pdf --type apriltag --nx $COLS --ny $ROWS --tsize $TAG_SIZE --tspace 0.3 target"
-    echo "wrote $OUT/target.pdf and target.yaml (${COLS}x${ROWS} tags)."
-    echo "Show/print it, measure one tag's black edge, and use THAT value as --tag-size."
+    kalibr "rosrun kalibr kalibr_create_target_pdf --type apriltag --nx $COLS --ny $ROWS --tsize $TAG_SIZE --tspace 0.3 target \
+        && python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png --check"
+    echo "also wrote $OUT/target.pdf (for printing). Pass the MEASURED tag size as --tag-size."
     exit 0
 fi
 
