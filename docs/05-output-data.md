@@ -27,6 +27,21 @@ adb pull /sdcard/Android/data/io.github.leonausp.zerofriction_vio_slam/files/ ./
 
 > ⚠️ Android **deletes this folder when the app is uninstalled.** Always pull your data first.
 
+## Exporting to CSV and EuRoC
+
+To get plain files, run the exporter (Docker, nothing to install):
+
+```bash
+tools/pb3_export/export.sh data/vid_2026_11_11_10_15_00   # or: tools/pb3_export/export.sh data
+```
+
+It writes `export/` into the recording folder:
+- `frames.csv`, `imu.csv`, `ois.csv` and `camera.json`;
+- a **EuRoC** dataset (`euroc/mav0/cam0`, `imu0`) for ORB-SLAM3, Basalt, OpenVINS and others.
+
+Details, options and caveats are in [`tools/pb3_export/README.md`](../tools/pb3_export/README.md).
+The rest of this page describes the raw protobuf file itself.
+
 ## `video_meta.pb3`: the protobuf file
 
 The schema is `protobuf/recording.proto`. The top-level message is `VideoCaptureData`:
