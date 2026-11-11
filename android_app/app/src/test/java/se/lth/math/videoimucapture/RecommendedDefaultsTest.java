@@ -38,10 +38,11 @@ public class RecommendedDefaultsTest {
         // default, ISO is metered per scene instead).
         assertEquals(300, RecommendedDefaults.ISO);
         assertEquals("MANUAL", RecommendedDefaults.FOCUS_MODE);
-        // Deliberate difference: the recordings used hyperfocal (~3.25 m); the default is a
-        // fixed 0.65 diopters (~1.5 m) for indoor scenes, sharp enough from ~0.75 m outwards.
+        // Deliberate difference: the recordings used the computed hyperfocal (0.31, beyond
+        // infinity on the Pixel 6's offset focus scale); the default is 1.1 on that scale, a real
+        // ~1.5 m, measured with tap-to-focus on a target (phone value = 0.40 + 1.08 x diopters).
         assertFalse(RecommendedDefaults.FOCUS_HYPERFOCAL);
-        assertEquals(0.65f, RecommendedDefaults.FOCUS_DISTANCE, 0f);
+        assertEquals(1.1f, RecommendedDefaults.FOCUS_DISTANCE, 0f);
         assertFalse(RecommendedDefaults.OIS);
         assertTrue(RecommendedDefaults.OIS_DATA);
         assertFalse(RecommendedDefaults.DVS);

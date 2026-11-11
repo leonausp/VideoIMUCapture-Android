@@ -78,7 +78,7 @@ camera's timestamp source is REALTIME (`camera.json` → `camera_info.timestamp_
   - **Camera intrinsics:** the phone's **per-frame** focal length and principal point of the lens
     that recorded (`LENS_INTRINSIC_CALIBRATION`, median over the frames), converted from that
     lens's sensor pixels to the video (centred crop to the video's aspect, scale, rotation by
-    `SENSOR_ORIENTATION`; tested). They include focus breathing: Pixel 6 main lens at 0.65 dpt,
+    `SENSOR_ORIENTATION`; tested). They include focus breathing: Pixel 6 main lens at 0.65 on its focus scale,
     899 px vs. the factory 877 px. Valid when the zoom shows the lens's full field (1.0 for the
     main lens, the minimum zoom for the ultrawide). The static factory values stay in
     `camera.json` as `factory_intrinsics_logical`.

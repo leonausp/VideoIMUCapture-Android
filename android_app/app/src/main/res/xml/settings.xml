@@ -38,7 +38,7 @@
         <Preference
             app:key="reset_defaults"
             app:title="Reset to recommended settings"
-            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), focus fixed at 1.5 m (0.65 diopters, for indoors), OIS off with OIS data on." />
+            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), focus fixed at about 1.5 m (1.1 on the focus scale of the phone, for indoors), OIS off with OIS data on." />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -84,7 +84,7 @@
             app:title="Focus at hyperfocal (manual focus only)"
             app:persistent="true"
             app:defaultValue="false"
-            app:summary="With focus mode MANUAL, park the lens at the hyperfocal distance instead of the distance slider — everything from about half of it to infinity is acceptably sharp, and the voice coil never moves again. Continuous AF hunts, and a lens that moves between frames breathes the focal length by a few percent across a session, which is the constant freeze_intrinsics asserts downstream. Computed from this lens: H = f²/(N·c) + f, circle of confusion = sensor diagonal / 1500. Unverified: nobody has yet plotted how much the focal actually moves on an AF-on walk, and if it turns out flat this is not needed." />
+            app:summary="Park the lens at the hyperfocal distance computed from the lens data, instead of the Focus Distance slider. CAUTION on the Pixel 6: its focus scale is offset (infinity = 0.40), so the computed value (0.31) lands beyond infinity and everything is slightly soft. Use the slider (default 1.1 = about 1.5 m) unless you have measured the scale of your phone." />
 
         <SwitchPreferenceCompat
             app:key="raw_pixels"
