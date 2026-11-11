@@ -120,6 +120,12 @@ public class RollActivity extends AppCompatActivity {
             for (SessionSummary s : all) {
                 present.add(s.mode);
             }
+            if (!BuildConfig.STILLS_UI && !all.isEmpty()) {
+                // VIO build: no capture modes, so no mode groups -- one list, newest first.
+                rows.add("RECORDINGS  (" + all.size() + ")");
+                rows.addAll(all);
+                present.clear();
+            }
             for (String mode : groupOrder(present)) {
                 int n = 0;
                 for (SessionSummary s : all) {
@@ -260,6 +266,8 @@ public class RollActivity extends AppCompatActivity {
         SessionSummary bound;
         final int mCountsColor;
 
+        private int mTitleColor;
+
         Row(View v) {
             super(v);
             thumb = v.findViewById(R.id.roll_thumb);
@@ -269,6 +277,7 @@ public class RollActivity extends AppCompatActivity {
             // Kept so a row recycled out of a warning goes back to its normal colour; rows are
             // reused, and a red line that stuck would accuse a healthy session.
             mCountsColor = counts.getTextColors().getDefaultColor();
+            mTitleColor = mode.getTextColors().getDefaultColor();
             size = v.findViewById(R.id.roll_size);
             tick = v.findViewById(R.id.roll_tick);
             v.setOnClickListener(x -> {
@@ -299,9 +308,23 @@ public class RollActivity extends AppCompatActivity {
             bound = null;                       // silence the listener while the box is set
             tick.setChecked(mTicked.contains(s.name));
             bound = s;
-            mode.setText(s.mode + "  " + s.kind);
-            mode.setTextColor(modeColor(s.mode));
-            when.setText(s.when);
+            if (!BuildConfig.STILLS_UI) {
+                // VIO build: the date is the title, then length and size. No "VIDEO video".
+                mode.setText(s.when);
+                mode.setTextColor(mTitleColor);
+                when.setText(s.lengthText() + "  ·  " + s.sizeText());
+                size.setVisibility(View.GONE);
+                // The counts line only when it says something: a warning, or stills in an
+                // older session.
+                boolean extra = s.receiptWarning != null || !s.stills.isEmpty();
+                counts.setVisibility(extra ? View.VISIBLE : View.GONE);
+            } else {
+                mode.setText(s.mode + "  " + s.kind);
+                mode.setTextColor(modeColor(s.mode));
+                when.setText(s.when);
+                size.setVisibility(View.VISIBLE);
+                counts.setVisibility(View.VISIBLE);
+            }
             // The counts line carries the receipt's complaint when there is one. A session
             // whose files merely lack video looks identical to one where the operator pressed
             // record and nothing arrived, and only the second is a failure to act on -- on

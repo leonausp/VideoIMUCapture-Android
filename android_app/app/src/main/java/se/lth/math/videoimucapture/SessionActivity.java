@@ -67,9 +67,16 @@ public class SessionActivity extends AppCompatActivity {
         delete.setOnClickListener(v -> confirmDelete());
 
         mSession = SessionSummary.quick(new File(path));
-        setTitle(mSession.mode + " · " + mSession.when);
-        mSummary.setText(mSession.mode + "  " + mSession.kind + "\n" + mSession.name + "\n"
-                + mSession.countsText() + " · " + mSession.sizeText());
+        if (BuildConfig.STILLS_UI) {
+            setTitle(mSession.mode + " · " + mSession.when);
+            mSummary.setText(mSession.mode + "  " + mSession.kind + "\n" + mSession.name + "\n"
+                    + mSession.countsText() + " · " + mSession.sizeText());
+        } else {
+            // VIO build: date as the title; details are date, folder name, length and size.
+            setTitle(mSession.when);
+            mSummary.setText(mSession.when + "\n" + mSession.name + "\n"
+                    + mSession.lengthText() + " · " + mSession.sizeText());
+        }
         mStreams.setText("reading streams…");
 
         View controls = findViewById(R.id.session_controls);
@@ -234,7 +241,8 @@ public class SessionActivity extends AppCompatActivity {
     private void confirmDelete() {
         new AlertDialog.Builder(this)
                 .setTitle("Delete this session?")
-                .setMessage(mSession.mode + "  " + mSession.when + "\n" + mSession.countsText()
+                .setMessage((BuildConfig.STILLS_UI ? mSession.mode + "  " : "")
+                        + mSession.when + "\n" + mSession.countsText()
                         + " · " + mSession.sizeText() + "\n\nThis cannot be undone.")
                 .setPositiveButton("Delete", (d, w) -> {
                     if (mVideo != null) {

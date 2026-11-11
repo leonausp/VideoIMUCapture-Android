@@ -99,4 +99,12 @@ public class SessionSummaryNameTest {
         // Older sessions keep their name.
         assertEquals("WALK", SessionSummary.parseName("walk_vid_2026_11_10_21_30_04")[0]);
     }
+
+    @Test
+    public void lengthIsSecondsUnderAMinuteThenMinutes() {
+        assertEquals("no video", SessionSummary.lengthText(0));
+        assertEquals("4.3 s", SessionSummary.lengthText(4251));
+        assertEquals("59.9 s", SessionSummary.lengthText(59_940));
+        assertEquals("2:05 min", SessionSummary.lengthText(125_200));
+    }
 }
