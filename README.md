@@ -40,6 +40,11 @@ change the camera's geometry stays fixed:
 
 Settings explained: [docs/04 – Features & settings](docs/04-features-and-settings.md).
 
+## Install
+
+Download **[apk/ZF-VIO-SLAM.apk](apk/ZF-VIO-SLAM.apk)** and install it (`adb install -r ZF-VIO-SLAM.apk`,
+or open it on the phone). Details, version and checksum: [apk/README.md](apk/README.md).
+
 ## Quick start
 
 ```bash

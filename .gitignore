@@ -100,3 +100,5 @@ android_app/app/release
 
 # Claude Code local session data
 .claude/
+# The ready-to-install APK is kept on purpose (see apk/README.md).
+!apk/ZF-VIO-SLAM.apk
