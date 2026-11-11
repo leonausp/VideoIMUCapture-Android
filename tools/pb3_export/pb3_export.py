@@ -19,6 +19,7 @@ input besides the recordings is recording.proto (--proto).
 """
 
 import argparse
+from collections import Counter as collections_counter
 import csv
 import importlib
 import json
@@ -74,6 +75,82 @@ def distort(x, y, k1, k2, k3, p1, p2):
     xd = x * radial + 2 * p1 * x * y + p2 * (r2 + 2 * x * x)
     yd = y * radial + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y
     return xd, yd
+
+
+def fit_radial_k1k2(k1, k2, k3, r_max, n=400):
+    """k1', k2' of a 2-term radial model that best matches k1, k2, k3 for radii 0..r_max.
+
+    EuRoC/Kalibr radial-tangential has no k3, and dropping it is not small: on the Pixel 6
+    main lens (k3 = 0.12) the image corners move by ~56 px. Least squares on the radial
+    displacement r * (k1 r^2 + k2 r^4 + k3 r^6), weighted by r (image area), leaves ~0.6 px
+    mean and ~4 px in the outermost corner. Returns (k1', k2', max error in normalized units).
+    """
+    r = np.linspace(0.0, r_max, n)
+    target = r * (k1 * r ** 2 + k2 * r ** 4 + k3 * r ** 6)
+    A = np.vstack([r ** 3, r ** 5]).T
+    w = np.sqrt(np.maximum(r, 1e-9))[:, None]
+    c, *_ = np.linalg.lstsq(A * w, target * w[:, 0], rcond=None)
+    return float(c[0]), float(c[1]), float(np.max(np.abs(A @ c - target)))
+
+
+def sensor_to_video(xs, ys, arr_w, arr_h, vid_w, vid_h, sensor_orientation):
+    """A point in sensor pixels -> video pixels, and the scale (video px per sensor px).
+
+    The video is the sensor image cropped to the video's aspect ratio (centred), scaled, and
+    rotated by SENSOR_ORIENTATION into the stored orientation -- the same rotation as the app's
+    FocalLengthHelper (90: x_video = W-1 - y, y_video = x, in pixels after the scale).
+    """
+    o = int(sensor_orientation) % 360
+    sw, sh = (vid_h, vid_w) if o in (90, 270) else (vid_w, vid_h)   # video in sensor orientation
+    s = max(sw / arr_w, sh / arr_h)
+    u = (xs - (arr_w - sw / s) / 2) * s
+    v = (ys - (arr_h - sh / s) / 2) * s
+    if o == 90:
+        return (sh - 1) - v, u, s
+    if o == 180:
+        return (sw - 1) - u, (sh - 1) - v, s
+    if o == 270:
+        return v, (sw - 1) - u, s
+    return u, v, s
+
+
+def active_array(cm):
+    """The active lens's pre-correction array (newer recordings), else None."""
+    name = "active_pre_correction_active_array_size"
+    if has_field(cm, name) and cm.HasField(name) and getattr(cm, name).width > 0:
+        return getattr(cm, name)
+    return None
+
+
+def start_intrinsics(cm, rows):
+    """fx, fy, cx, cy in video pixels from the per-frame HAL LENS_INTRINSIC_CALIBRATION.
+
+    Through a logical camera the HAL reports the ACTIVE lens's intrinsics in that lens's own
+    sensor pixels, including focus breathing (Pixel 6 main lens at 0.65 dpt: +2.6 % over the
+    factory value). The static intrinsic_params are the logical camera's (= main lens), wrong for
+    the ultrawide. Returns (dict, note) or (None, reason).
+    """
+    k = [list(r.lens_intrinsic_calibration) for r in rows if len(r.lens_intrinsic_calibration) >= 4
+         and r.lens_intrinsic_calibration[0] > 0]
+    if not k:
+        return None, "no per-frame LENS_INTRINSIC_CALIBRATION in the recording"
+    k = np.median(np.array(k)[:, :4], axis=0)
+    active_arr = active_array(cm)
+    arr = active_arr or cm.pre_correction_active_array_size
+    if arr.width <= 0:
+        return None, "no sensor array size in the recording"
+    cx, cy, s = sensor_to_video(k[2], k[3], arr.width, arr.height,
+                                cm.resolution.width, cm.resolution.height, cm.sensor_orientation)
+    ids = collections_counter(r.active_physical_camera_id for r in rows if r.active_physical_camera_id)
+    lens = getattr(cm, "active_camera_id", "") or (ids.most_common(1)[0][0] if ids else "") \
+        or cm.metadata_camera_id or "?"
+    note = ("per-frame HAL LENS_INTRINSIC_CALIBRATION (median), lens %s, array %dx%d, centred crop, "
+            "scaled x%.5f and rotated %d deg. Valid when the zoom shows the lens's full field "
+            "(1.0 for the main lens, the minimum zoom for the ultrawide)"
+            % (lens, arr.width, arr.height, s, cm.sensor_orientation))
+    if active_arr is None:
+        note += "; OLD RECORDING without the active lens's array size: logical array assumed"
+    return {"fx": float(k[0] * s), "fy": float(k[1] * s), "cx": float(cx), "cy": float(cy)}, note
 
 
 def rotate_point(x, y, sensor_orientation):
@@ -196,9 +273,26 @@ def export_session(sess, R, args, report):
     dist_sensor = list(cm.distortion_params)
     derived = {"image_width": cm.resolution.width, "image_height": cm.resolution.height}
     if len(intr) >= 4:
+        derived["factory_intrinsics_logical"] = {
+            "fx": intr[0], "fy": intr[1], "cx": intr[2], "cy": intr[3],
+            "note": "static LENS_INTRINSIC_CALIBRATION of the camera the app opened (logical = main "
+                    "lens on the Pixel 6), scaled and rotated by the app"}
+    per_frame, why = start_intrinsics(cm, list(d.video_meta))
+    if per_frame:
+        derived.update(per_frame)
+        derived["intrinsics_source"] = why
+    elif len(intr) >= 4:
         derived.update({"fx": intr[0], "fy": intr[1], "cx": intr[2], "cy": intr[3],
-                        "intrinsics_source": "factory LENS_INTRINSIC_CALIBRATION, scaled and "
-                                             "rotated to the video by the app"})
+                        "intrinsics_source": "static factory intrinsics (%s)" % why})
+        say("start intrinsics: static factory values (%s)" % why)
+    if per_frame or len(intr) >= 4:
+        say("start intrinsics: fx %.1f cx %.1f cy %.1f" % (derived["fx"], derived["cx"], derived["cy"]))
+    lens_ids = sorted({r.active_physical_camera_id for r in d.video_meta if r.active_physical_camera_id})
+    dist_from = getattr(cm, "distortion_camera_id", "")
+    if len(lens_ids) == 1 and dist_from and dist_from != lens_ids[0]:
+        say("WARNING: frames come from lens %s but the distortion is lens %s's" % (lens_ids[0], dist_from))
+    if lens_ids and not list(cm.distortion_params):
+        say("WARNING: no factory distortion recorded (old app version); start values use none")
     if len(dist_sensor) >= 5:
         k1, k2, k3, p1, p2 = dist_sensor[:5]
         p1i, p2i = rotate_tangential(p1, p2, orient)
@@ -206,6 +300,17 @@ def export_session(sess, R, args, report):
             "k1": k1, "k2": k2, "p1": p1i, "p2": p2i, "k3": k3,
             "note": "factory LENS_DISTORTION, tangential terms rotated from sensor to video "
                     "orientation; OpenCV order is [k1, k2, p1, p2, k3]"}
+        if k3 != 0 and derived.get("fx", 0) > 0:
+            # Radius of the image corner farthest from the principal point, normalized.
+            w, h = cm.resolution.width, cm.resolution.height
+            fx0, cx0, cy0 = derived["fx"], derived["cx"], derived["cy"]
+            r_max = max(math.hypot(x - cx0, y - cy0) for x in (0, w) for y in (0, h)) / fx0
+            f1, f2, err = fit_radial_k1k2(k1, k2, k3, r_max)
+            derived["distortion_radtan4_image"] = {
+                "k1": f1, "k2": f2, "p1": p1i, "p2": p2i,
+                "max_error_px": err * fx0,
+                "note": "k1, k2 refit over the image (r <= %.3f) to include k3, for 4-coefficient "
+                        "models (EuRoC, Kalibr radtan); used in euroc cam0/sensor.yaml" % r_max}
     rows_meta = list(d.video_meta)
     if rows_meta:
         derived["focal_length_mm"] = rows_meta[0].focal_length_mm
@@ -275,12 +380,13 @@ def export_session(sess, R, args, report):
     tc = np.array([r[0] for r in cam_rows], dtype=np.int64)
     cam_hz = float(1e9 / np.median(np.diff(tc))) if len(tc) > 1 else 0.0
     identity = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
-    dist = derived.get("distortion_radtan_image")
+    dist = derived.get("distortion_radtan4_image") or derived.get("distortion_radtan_image")
     cam_yaml = {
         "sensor_type": "camera",
-        "comment": "Zero-Friction VIO SLAM export. START VALUES ONLY: intrinsics/distortion are the "
-                   "phone's factory values and T_BS is identity. Replace with your Kalibr "
-                   "calibration (T_cam_imu, intrinsics, distortion, timeshift).",
+        "comment": "Zero-Friction VIO SLAM export. START VALUES: intrinsics are the phone's per-frame "
+                   "values for the recording lens, distortion its factory values (k3 refit), "
+                   "T_BS is identity. Good enough for 'calibrate.sh imucam --camchain factory'; "
+                   "replace T_BS with the Kalibr result (T_cam_imu, timeshift).",
         "T_BS": {"cols": 4, "rows": 4, "data": identity},
         "rate_hz": round(cam_hz, 3),
         "resolution": [cm.resolution.width, cm.resolution.height],

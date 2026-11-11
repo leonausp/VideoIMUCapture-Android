@@ -55,15 +55,15 @@ Both are self-contained folders that run in Docker, so they can be copied into o
 
 - **[`tools/pb3_export/`](tools/pb3_export/README.md)** converts a recording into `frames.csv`,
   `imu.csv`, `camera.json` and a **EuRoC** folder (`cam0/data/*.png`, `imu0/data.csv`) for SLAM.
-- **[`tools/kalibr_calib/`](tools/kalibr_calib/README.md)** calibrates the camera (focal length,
-  distortion) and the camera–IMU rotation, offset and time shift with the official
-  [Kalibr](https://github.com/ethz-asl/kalibr), from **one ~70 s recording** of an AprilGrid
-  printed on paper or shown on a laptop screen:
+- **[`tools/kalibr_calib/`](tools/kalibr_calib/README.md)** calibrates the camera–IMU rotation,
+  offset and time shift with the official [Kalibr](https://github.com/ethz-asl/kalibr), from
+  **one ~1 min recording** of an AprilGrid printed on paper or shown on a screen. The lens values
+  (focal length, distortion) come from the phone itself:
 
   ```bash
   tools/kalibr_calib/build.sh                                  # once: the Kalibr image
   tools/kalibr_calib/calibrate.sh target                       # the target (PDF + screen PNG)
-  tools/kalibr_calib/calibrate.sh all data/vid_<date> --tag-size 0.03 --cam-until 30
+  tools/kalibr_calib/calibrate.sh imucam data/vid_<date> --tag-size 0.03 --camchain factory
   ```
 
 ## Privacy and permissions

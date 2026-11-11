@@ -122,7 +122,9 @@ final class FrameRecords {
                                                  boolean mSwappedDimensions,
                                                  String requestedCamera,
                                                  String metadataCameraId,
-                                                 String logicalCameraId) {
+                                                 String logicalCameraId,
+                                                 CameraCharacteristics activeLens,
+                                                 String activeLensId) {
 
         RecordingProtos.CameraInfo.Builder metaBuilder = RecordingProtos.CameraInfo.newBuilder()
                 .setOpticalImageStabilization(mCameraSettingsManager.OISEnabled())
@@ -189,10 +191,29 @@ final class FrameRecords {
 
         if (Build.VERSION.SDK_INT >= 28) {
             float[] distortion = mCameraCharacteristics.get(CameraCharacteristics.LENS_DISTORTION);
-            if ((distortion != null) && (abs(distortion[0]) > 0)) {
+            String distortionFrom = metadataCameraId;
+            // Through a logical camera the ACTIVE physical lens's distortion is the one in the
+            // pixels (the Pixel 6's logical camera reports zeros, and may record through the
+            // ultrawide). Take it whenever that lens reports one.
+            if (activeLens != null) {
+                float[] d = activeLens.get(CameraCharacteristics.LENS_DISTORTION);
+                if (hasDistortion(d)) {
+                    distortion = d;
+                    distortionFrom = activeLensId;
+                }
+                metaBuilder.setActiveCameraId(activeLensId == null ? "" : activeLensId);
+                Rect arr = activeLens.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
+                if (arr != null) {
+                    metaBuilder.setActivePreCorrectionActiveArraySize(
+                            RecordingProtos.CameraInfo.Size.newBuilder()
+                                    .setWidth(arr.width()).setHeight(arr.height()));
+                }
+            }
+            if (hasDistortion(distortion)) {
                 for (float e : distortion) {
                     metaBuilder.addDistortionParams(e);
                 }
+                metaBuilder.setDistortionCameraId(distortionFrom == null ? "" : distortionFrom);
             }
             Integer lensPoseReference = mCameraCharacteristics.get(CameraCharacteristics.LENS_POSE_REFERENCE);
             if (lensPoseReference != null) {
@@ -200,6 +221,18 @@ final class FrameRecords {
             }
         }
         return metaBuilder.build();
+    }
+
+    static boolean hasDistortion(float[] d) {
+        if (d == null) {
+            return false;
+        }
+        for (float e : d) {
+            if (e != 0f) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

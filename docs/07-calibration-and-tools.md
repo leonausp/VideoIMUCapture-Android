@@ -2,21 +2,25 @@
 
 VIO needs to know four things about the phone:
 
-| What | Meaning | Changes when… |
+| What | Meaning | Where it comes from |
 |---|---|---|
-| **Camera intrinsics** | focal length, image centre, lens distortion | lens, resolution, zoom, focus or stabilisation change |
-| **Camera–IMU extrinsics** | rotation and offset between camera and IMU | never on one phone |
-| **Camera–IMU time offset** | how far the image timestamps are off from the IMU's | (should be stable; checked by repeating) |
-| **IMU noise** | how noisy the gyroscope and accelerometer are | never on one phone |
+| **Camera intrinsics** | focal length, image centre, lens distortion | **the phone**: per-frame focal length of the recording lens, factory distortion |
+| **Camera–IMU extrinsics** | rotation and offset between camera and IMU | **Kalibr**, from one ~1 min recording of a target |
+| **Camera–IMU time offset** | how far the image timestamps are off from the IMU's | **Kalibr**, same recording |
+| **IMU noise** | how noisy the gyroscope and accelerometer are | typical phone values for now; Allan variance later (section 6) |
 
-The first three come from **one ~70 s recording** of a calibration target, with
-[`tools/kalibr_calib/`](../tools/kalibr_calib/README.md), which runs the official
-[Kalibr](https://github.com/ethz-asl/kalibr) in Docker. **You calibrate once per phone and
-settings**, not per recording. With the recommended settings (main lens, 1280×960, fixed focus,
-no OIS/EIS) every later recording reuses the same calibration.
+[`tools/kalibr_calib/`](../tools/kalibr_calib/README.md) runs the official
+[Kalibr](https://github.com/ethz-asl/kalibr) in Docker. **You calibrate once per phone, lens and
+settings**, not per recording; with the recommended settings (1280×960, fixed focus, no OIS/EIS)
+every later recording reuses the result.
 
-IMU noise needs a separate, long static recording (section 6). Until then, the tool uses typical
-phone values.
+**Why the intrinsics come from the phone.** Kalibr can also calibrate the lens, but on our Pixel 6
+recordings it failed or gave a wrong focal length in 5 of 7 attempts (e.g. 447 px instead of ~600
+for the ultrawide, with a deceptively small error of 0.43 px): a flat grid seen mostly face-on
+leaves focal length and distance ambiguous. The phone's own values are consistent: the HAL reports
+the active lens's focal length for every frame, including focus breathing (main lens at 0.65 dpt:
+899 px, 2.6 % more than the factory value), and the factory distortion. The exporter turns them
+into start values, and the camera–IMU calibration uses them as they are.
 
 ## 1. Build the Kalibr image (once)
 
@@ -53,20 +57,17 @@ doesn't change the intrinsics and hardly matters for the rest.
 
 ## 3. Record
 
-In the app: the recommended settings, plus **exposure 2–3 ms** (exposure button, bottom right).
-The target lies or hangs still; you move the phone. About **70 s**:
+In the app: the settings you'll use for SLAM (lens, resolution, focus), plus **exposure 2–3 ms**
+(exposure button, bottom right; back to AUTO afterwards). Choose the lens with the zoom (1.0 = main,
+the minimum = ultrawide); calibrate each lens you use separately. The target lies or hangs still;
+you move the phone. About **60–70 s**: start calmly, then rotate the phone around **all three
+axes** and move it along all three directions, briskly, keeping the grid at least partly in view.
+Moving towards and away from the target helps the offset along the viewing direction.
 
-| Time | Motion | Used for |
-|---|---|---|
-| **0–30 s, calm** | Move slowly so the grid passes through **every part of the image**, especially the corners. Tilt up to ~45° in each direction, vary the distance (~0.5–0.8 m). | intrinsics |
-| **30–70 s, brisk** | Rotate the phone around **all three axes** and move it along all three directions. The grid may leave the image partly, but not completely. | camera–IMU |
-
-Why the two parts: the intrinsics need **sharp** images with the grid everywhere in the frame, while
-the camera–IMU calibration needs **motion**, because the IMU only measures what moves. The short
-exposure keeps the brisk part sharp enough (at 5 ms a quick turn smears corners by ~9 px).
-
-The calibration is still valid for SLAM recordings at 5 ms: exposure doesn't change the geometry,
-and the timestamps are taken at mid-exposure (section 5).
+**Distance.** The grid's squares must stay readable: each code cell (1/10 of a square) needs about
+4 px. On A4 (3 cm squares) that is ~0.6–0.8 m. With the main lens on a laptop screen (2.8 cm
+squares) 0.7 m was too far: cells of ~3 px, nothing decoded. The ultrawide has far more depth of
+field and worked on the same screen at 94 of 96 corners per frame.
 
 Record **2–3 times**. The time offsets should agree to about 1 ms.
 
@@ -76,42 +77,46 @@ Copy the recordings to the computer as usual (`adb pull …`, see [06](06-buildi
 then:
 
 ```bash
-tools/kalibr_calib/calibrate.sh all data/vid_<date> --tag-size 0.0321 --cam-until 30
+tools/kalibr_calib/calibrate.sh imucam data/vid_<date> --tag-size 0.03 --camchain factory
 ```
 
 - `--tag-size` is your measured value in metres (paper at 100 %: `0.03`).
-- `--cam-until 30` takes the intrinsics from the calm first 30 seconds only.
+- `--camchain factory` uses the phone's lens values (the start values the export writes).
 
 The script converts the recording (with [`tools/pb3_export`](../tools/pb3_export/README.md),
-timestamps at mid-exposure), runs Kalibr's lens calibration, then the camera–IMU calibration with
-that result. It takes 10–30 minutes. Kalibr's own output goes to `kalibr.log`; the terminal shows
-the steps and then a rated summary:
+timestamps at mid-exposure) and runs Kalibr's camera–IMU calibration (5–10 minutes). Kalibr's own
+output goes to `kalibr.log`; the terminal shows the steps and a rated summary:
 
 | Value | Good | If not |
 |---|---|---|
-| Reprojection error, lens | below 0.5 px | target not flat, blurry frames in the calm part, wrong `--cam-until` |
-| fx vs fy | within 1 % | too few tilted views |
-| Image centre | within ~3 % of the middle | grid didn't reach the image edges |
-| Time offset | stable across repeats (±1 ms), a few ms | too little brisk motion; check the timestamp source |
-| Rotation vs. phone axes | below ~2° off a 90° axis swap | too little rotation, or a wrong target size/layout |
+| Time offset | about half the rolling-shutter readout + 1–2 ms; stable across repeats (±1 ms) | too little brisk motion |
+| Rotation vs. phone axes | below ~2° off a 90° axis swap | too little rotation, wrong target size/layout |
 | Camera–IMU distance | a few cm | too little translation in the brisk part |
+| Reprojection error | below ~1 px | blur (exposure too long), grid too small |
 
-The results go to `data/vid_<date>/kalibr_all/`:
+**Measured on the Pixel 6** (recommended settings, focus 0.65 dpt, 2026-11-11):
 
-| File | Contents |
-|---|---|
-| `all-camchain.yaml` | intrinsics only |
-| `all-camchain-imucam.yaml` | intrinsics + `T_cam_imu` + `timeshift_cam_imu`: **what SLAM needs** |
-| `all-report-cam.pdf`, `all-report-imucam.pdf` | Kalibr's plots |
-| `kalibr.log` | Kalibr's full output |
+| | Main lens (zoom 1.0) | Ultrawide (zoom 0.67) |
+|---|---|---|
+| fx (phone, per frame) | 899 px | ~600 px |
+| Rolling-shutter readout | 13.6 ms | 32.4 ms |
+| Time offset | 8.4 ± 0.4 ms (4 recordings) | 17.2 ± 0.3 ms (2 recordings) |
+| Rotation | within ~1° of the axis swap | within ~1° |
+| Offset x / y / z | ≈ −5.0 / 1.7 / −0.1 … −1.9 cm | ≈ −3.8 / 1.5 / 0.0 cm |
 
-If something fails, the script says why in plain words for the common causes (no target found,
-focal length not estimable, too few good views), otherwise it shows the end of the log.
+The main lens and the ultrawide come out 1.2–1.5 cm apart sideways; the phone's factory data put
+the ultrawide 1.48 cm from the main lens, which is an independent check of the translation. The
+offset along the viewing direction (z) is the least certain component.
 
-**Separate steps** are possible too: `calibrate.sh cam <recording>` (intrinsics only) and
-`calibrate.sh imucam <recording> --camchain <file>` (camera–IMU with an existing intrinsics file,
-e.g. from another tool). `--target <file>` uses another Kalibr target, such as a checkerboard.
-`calibrate.sh --help` lists everything.
+The results go to `<recording>/kalibr_imucam/`: `imucam-camchain-imucam.yaml` (intrinsics +
+`T_cam_imu` + `timeshift_cam_imu`, **what SLAM needs**), `imucam-report-imucam.pdf` (plots),
+`kalibr.log`.
+
+**Kalibr's lens calibration** is still available (`calibrate.sh all <recording> --cam-until 30`,
+lens from the calm first 30 s, then camera–IMU; or `cam` for the lens only). The summary compares
+its focal length with the phone's and says when it went wrong. It needs many strongly tilted views
+with the grid reaching every image corner. `--target <file>` uses another Kalibr target, such as a
+checkerboard; `calibrate.sh --help` lists everything.
 
 ## 5. Use the calibration for SLAM
 
@@ -121,7 +126,7 @@ Export SLAM recordings with the **same timestamp convention** as the calibration
 tools/pb3_export/export.sh data/vid_<date> --image-time mid-exposure
 ```
 
-From `all-camchain-imucam.yaml`:
+From `imucam-camchain-imucam.yaml`:
 
 - **Intrinsics** (`intrinsics: [fu, fv, pu, pv]`, `distortion_coeffs: [k1, k2, p1, p2]`,
   model pinhole + radtan) go into the SLAM system's camera settings.
@@ -132,8 +137,9 @@ From `all-camchain-imucam.yaml`:
 - **`timeshift_cam_imu`**: `t_imu = t_cam + timeshift`. Add it to the image timestamps, or pass it
   to a system that takes it as a parameter.
 
-The EuRoC export's own `sensor.yaml` files only carry start values (factory intrinsics, identity
-transforms, placeholder noise); replace them with these results.
+The EuRoC export's own `sensor.yaml` files carry the start values: the phone's intrinsics (the
+same as in the calibration), but an identity `T_BS` and placeholder IMU noise. Use the Kalibr
+result for the transform and the time offset.
 
 ## 6. IMU noise (Allan variance)
 

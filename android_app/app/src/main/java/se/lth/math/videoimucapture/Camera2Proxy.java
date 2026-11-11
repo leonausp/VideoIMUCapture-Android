@@ -1373,12 +1373,55 @@ public class Camera2Proxy {
     }
 
     public void writeCameraInfo() {
+        // Recording through the logical camera (no lens pinned): which physical lens is
+        // delivering the frames? The last preview result says (API 29+); the zoom picks it, e.g.
+        // the ultrawide at 0.67x on the Pixel 6. Before API 29, or without a result yet, take the
+        // physical lens with the logical camera's own factory intrinsics (the main lens).
+        // (mLensCharacteristics is never null: resolveVideoLens() sets it to the logical
+        // camera's characteristics when no lens is pinned, so test mVideoLensId.)
+        String activeId = null;
+        CameraCharacteristics active = null;
+        if (mVideoLensId == null && mCameraCharacteristics != null
+                && Build.VERSION.SDK_INT >= 28) {
+            java.util.Set<String> physical = mCameraCharacteristics.getPhysicalCameraIds();
+            TotalCaptureResult last = mLastResult;
+            if (Build.VERSION.SDK_INT >= 29 && last != null) {
+                String id = last.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+                if (id != null && physical.contains(id)) {
+                    activeId = id;
+                }
+            }
+            if (activeId == null) {
+                float[] own = mCameraCharacteristics.get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
+                for (String id : physical) {
+                    try {
+                        float[] k = mCameraManager.getCameraCharacteristics(id)
+                                .get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
+                        if (own != null && java.util.Arrays.equals(own, k)) {
+                            activeId = id;
+                            break;
+                        }
+                    } catch (CameraAccessException | IllegalArgumentException e) {
+                        Log.w(TAG, "physical camera " + id + ": " + e);
+                    }
+                }
+            }
+            if (activeId != null) {
+                try {
+                    active = mCameraManager.getCameraCharacteristics(activeId);
+                } catch (CameraAccessException | IllegalArgumentException e) {
+                    Log.w(TAG, "physical camera " + activeId + ": " + e);
+                    activeId = null;
+                }
+            }
+            Log.i(TAG, "camera info: logical " + mCameraIdStr + ", active lens " + activeId);
+        }
         mRecordingWriter.queueData(FrameRecords.cameraInfo(mCameraSettingsManager,
                 mLensCharacteristics != null ? mLensCharacteristics : mCameraCharacteristics,
                 mFocalLengthHelper, mSwappedDimensions,
                 mVideoLensId != null ? mVideoLensId : FrameRecords.LOGICAL,
                 mVideoLensId != null ? mVideoLensId : mCameraIdStr,
-                mCameraIdStr));
+                mCameraIdStr, active, activeId));
     }
 
     /**

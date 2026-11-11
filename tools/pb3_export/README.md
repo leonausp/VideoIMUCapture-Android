@@ -74,17 +74,24 @@ camera's timestamp source is REALTIME (`camera.json` → `camera_info.timestamp_
   `time_ns`.
 - **Trimming:** images before the first and after the last IMU sample are dropped, because the IMU
   starts ~100 ms after the first frame. VIO systems need IMU data before the first image.
-- **`sensor.yaml` files are START VALUES ONLY.**
-  - **Camera:** the phone's factory intrinsics, scaled and rotated to the video by the app. The
-    factory distortion is converted to the video's orientation: radial terms unchanged, tangential
-    terms rotated; this is tested in `test_pb3_export.py`. EuRoC's radial-tangential has four
-    coefficients [k1, k2, p1, p2]; k3 is in `camera.json`.
-  - **Transforms:** `T_BS` is identity for both sensors.
-  - **IMU noise values** are placeholders.
+- **`sensor.yaml` files are START VALUES.**
+  - **Camera intrinsics:** the phone's **per-frame** focal length and principal point of the lens
+    that recorded (`LENS_INTRINSIC_CALIBRATION`, median over the frames), converted from that
+    lens's sensor pixels to the video (centred crop to the video's aspect, scale, rotation by
+    `SENSOR_ORIENTATION`; tested). They include focus breathing: Pixel 6 main lens at 0.65 dpt,
+    899 px vs. the factory 877 px. Valid when the zoom shows the lens's full field (1.0 for the
+    main lens, the minimum zoom for the ultrawide). The static factory values stay in
+    `camera.json` as `factory_intrinsics_logical`.
+  - **Distortion:** the recording lens's factory `LENS_DISTORTION`, rotated to the video
+    (tangential terms; tested). EuRoC's radial-tangential has no k3, and dropping it moves the
+    Pixel 6 main lens's corners by ~56 px, so k1, k2 are **refit** over the image to include k3
+    (~0.6 px mean, a few px in the far corner; tested). All five terms are in `camera.json`.
+    Recordings from app versions before 2026-11-11 carry no distortion; the report warns.
+  - **Transforms:** `T_BS` is identity for both sensors. **IMU noise values** are placeholders.
 
-  Replace all of these with your **Kalibr** results (`T_cam_imu`, intrinsics, distortion,
-  `timeshift_cam_imu`) and with IMU noise from an **Allan-variance** analysis of a long static
-  recording.
+  Use these intrinsics with `tools/kalibr_calib/calibrate.sh imucam ... --camchain factory`, and
+  take `T_cam_imu` and `timeshift_cam_imu` from that result; IMU noise from an **Allan-variance**
+  analysis of a long static recording.
 - **Frames:** the IMU follows the Android device frame (x right, y up, z out of the screen). The
   camera follows the image frame of the stored (portrait) video. The rotation between them comes
   from the calibration, not from this tool.
