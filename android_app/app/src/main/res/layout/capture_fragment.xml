@@ -24,10 +24,13 @@
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/cameraParams_text"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
         android:layout_marginTop="16dp"
+        android:maxLines="1"
+        app:layout_constraintEnd_toEndOf="parent"
         android:text="[?]"
         android:textAppearance="@style/TextAppearance.MyApp.Overlay"
         app:layout_constraintStart_toStartOf="parent"
@@ -233,15 +236,21 @@
     <!-- Exposure on the preview: stacked buttons in the bottom-right corner, level with
          RECORD (focus, exposure time, ISO). Tapping one opens the adjust bar above them; values are the same settings as on the settings
          screen and apply to the preview at once. Locked while recording. -->
+    <!-- Width comes from the free space between RECORD and the screen edge, not from the text
+         (a long "ISO auto 3200 ▼2.6" at a large system font used to widen all three buttons
+         over RECORD). The text shrinks to fit instead; the column grows upward. -->
     <LinearLayout
         android:id="@+id/exposure_chips"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="20dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="12dp"
         android:orientation="vertical"
+        app:layout_constraintWidth_max="200dp"
+        app:layout_constraintHorizontal_bias="1"
         app:layout_constraintBottom_toBottomOf="@+id/capture_controls_row"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/capture_controls_row">
+        app:layout_constraintStart_toEndOf="@+id/capture_controls_row">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/focus_chip"
@@ -249,7 +258,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="6dp"
-            android:textSize="13sp"
             android:minHeight="0dp"
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
@@ -259,8 +267,12 @@
             android:textColor="#FFFFFF"
             app:backgroundTint="#99000000"
             app:strokeColor="#CCFFFFFF"
+            tools:text="Focus: tap"
             android:maxLines="1"
-            tools:text="Focus: tap" />
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="13sp"
+            />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/exposure_chip"
@@ -268,7 +280,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="6dp"
-            android:textSize="13sp"
             android:minHeight="0dp"
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
@@ -278,13 +289,17 @@
             android:textColor="#FFFFFF"
             app:backgroundTint="#99000000"
             app:strokeColor="#CCFFFFFF"
-            tools:text="5.0 ms" />
+            tools:text="5.0 ms"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="13sp"
+            />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/iso_chip"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:textSize="13sp"
             android:layout_height="wrap_content"
             android:minHeight="0dp"
             android:paddingTop="6dp"
@@ -296,7 +311,11 @@
             app:backgroundTint="#99000000"
             app:strokeColor="#CCFFFFFF"
             tools:text="ISO auto 4740"
-            android:maxLines="1" />
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="13sp"
+            />
     </LinearLayout>
 
     <!-- Adjust bar for the chosen value: - / value (tap to type) / + , and AUTO for ISO. -->
@@ -310,7 +329,10 @@
         android:orientation="horizontal"
         android:padding="4dp"
         android:visibility="gone"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintHorizontal_bias="1"
         app:layout_constraintBottom_toTopOf="@+id/exposure_chips"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <Button

@@ -822,6 +822,7 @@ public class CameraCaptureFragment extends Fragment
         getActivity().runOnUiThread(() -> {
             if (mCaptureResultText != null) {
                 mCaptureResultText.setText(line);
+                fitLinesToWidth(mCaptureResultText);
                 refreshExposureControls();
             }
         });
@@ -1123,6 +1124,7 @@ public class CameraCaptureFragment extends Fragment
             mFocusChip.setText("CONTINUOUS_AUTO".equals(fm) ? "Focus: AF" : "Focus: tap");
         }
         mFocusChip.setAlpha(enabled ? 1f : 0.5f);
+        fitChips(mFocusChip, mExposureChip, mIsoChip);
         if (!enabled) {
             mPanelParam = null;
         }
@@ -1142,6 +1144,81 @@ public class CameraCaptureFragment extends Fragment
             mPanelAuto.setVisibility(View.VISIBLE);
             mPanelAuto.setAlpha("TOUCH_AUTO".equals(fm) ? 1f : 0.6f);
             mPanelAf.setAlpha("CONTINUOUS_AUTO".equals(fm) ? 1f : 0.6f);
+        }
+    }
+
+    // Readout size: Body1 (16sp, scaled by the system font size), shrunk only as far as needed
+    // so that no line wraps -- at a large system font "· IMU 500 Hz" used to spill onto a line
+    // of its own. Never below READOUT_MIN_SP.
+    private static final float READOUT_SP = 16f;
+    private static final float READOUT_MIN_SP = 10f;
+
+    /** Shrink a multi-line readout so its widest line fits the view's width. UI thread. */
+    private void fitLinesToWidth(TextView tv) {
+        int avail = tv.getWidth() - tv.getPaddingLeft() - tv.getPaddingRight();
+        if (avail <= 0) {
+            tv.post(() -> {
+                if (tv.getWidth() > 0) {
+                    fitLinesToWidth(tv);
+                }
+            });
+            return;
+        }
+        android.util.DisplayMetrics dm = tv.getResources().getDisplayMetrics();
+        float full = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP, READOUT_SP, dm);
+        float min = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP, READOUT_MIN_SP, dm);
+        android.text.TextPaint p = new android.text.TextPaint(tv.getPaint());
+        p.setTextSize(full);
+        float widest = 0f;
+        for (String l : tv.getText().toString().split("\n")) {
+            widest = Math.max(widest, p.measureText(l));
+        }
+        float size = widest > avail ? Math.max(min, full * avail / widest * 0.98f) : full;
+        if (Math.abs(tv.getTextSize() - size) > 0.5f) {
+            tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size);
+        }
+    }
+
+    private static final float CHIP_SP = 13f;
+    private static final float CHIP_MIN_SP = 8f;
+
+    /**
+     * Shrink a one-line button text until it fits the button's width (the corner buttons get
+     * their width from the free space beside RECORD, which a large system font or display size
+     * makes small). XML autosizing did not take effect on these MaterialButtons. UI thread.
+     */
+    private void fitChips(TextView... chips) {
+        if (chips.length == 0 || chips[0].getWidth() <= 0) {
+            chips[0].post(() -> {
+                if (chips[0].getWidth() > 0) {
+                    fitChips(chips);
+                }
+            });
+            return;
+        }
+        android.util.DisplayMetrics dm = chips[0].getResources().getDisplayMetrics();
+        float full = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP, CHIP_SP, dm);
+        float min = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP, CHIP_MIN_SP, dm);
+        // One size for all buttons (the smallest any of them needs), so they look alike.
+        float size = full;
+        for (TextView tv : chips) {
+            int avail = tv.getWidth() - tv.getPaddingLeft() - tv.getPaddingRight();
+            android.text.TextPaint p = new android.text.TextPaint(tv.getPaint());
+            p.setTextSize(full);
+            float w = p.measureText(tv.getText().toString());
+            if (avail > 0 && w > avail) {
+                size = Math.min(size, full * avail / w * 0.96f);
+            }
+        }
+        size = Math.max(min, size);
+        for (TextView tv : chips) {
+            if (Math.abs(tv.getTextSize() - size) > 0.5f) {
+                tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size);
+            }
         }
     }
 
@@ -1231,6 +1308,7 @@ public class CameraCaptureFragment extends Fragment
         if (fragmentView != null) {
             TextView text = (TextView) fragmentView.findViewById(R.id.cameraParams_text);
             text.setText(previewFacts);
+            fitLinesToWidth(text);
         }
 
     }
