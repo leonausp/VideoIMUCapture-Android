@@ -28,8 +28,11 @@ Camera frames and IMU samples share the phone's boot clock when the camera repor
 The defaults ("Reset to recommended settings") are chosen for VIO, so everything that would
 change the camera's geometry stays fixed:
 
-- **Main lens, 1280×960, fixed focus** at ≈ 1.5 m (sharp enough from ~0.75 m to far away; chosen
-  for indoor scenes), **no OIS, no EIS, no distortion correction**.
+- **Main lens, 1280×960, no OIS, no EIS, no distortion correction.**
+- **Tap to focus, locked at RECORD:** the preview focuses on the image centre at start and wherever
+  you tap; when you press RECORD the lens is held there for the whole clip, because the focal
+  length changes with focus. The export
+  records each clip's own focal length, so clips may use different focus.
 - **Shutter priority:** exposure fixed at **5 ms** against motion blur; the ISO is metered for the
   scene in the preview and **locked when you press RECORD**, so every frame of a clip has the same
   exposure and ISO.

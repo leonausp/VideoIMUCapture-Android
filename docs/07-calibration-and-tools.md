@@ -11,15 +11,17 @@ VIO needs to know four things about the phone:
 
 [`tools/kalibr_calib/`](../tools/kalibr_calib/README.md) runs the official
 [Kalibr](https://github.com/ethz-asl/kalibr) in Docker. **You calibrate once per phone, lens and
-settings**, not per recording; with the recommended settings (1280×960, fixed focus, no OIS/EIS)
-every later recording reuses the result.
+settings**, not per recording; with the recommended settings (1280×960, no OIS/EIS) every later
+recording reuses the result. Focus may differ between the calibration and later clips (tap to focus,
+locked at RECORD; for the calibration, tap the target): the camera–IMU result does not depend on it, and each clip's own focal length
+comes from the phone.
 
 **Why the intrinsics come from the phone.** Kalibr can also calibrate the lens, but on our Pixel 6
 recordings it failed or gave a wrong focal length in 5 of 7 attempts (e.g. 447 px instead of ~600
 for the ultrawide, with a deceptively small error of 0.43 px): a flat grid seen mostly face-on
 leaves focal length and distance ambiguous. The phone's own values are consistent: the HAL reports
-the active lens's focal length for every frame, including focus breathing (main lens at 0.65 dpt:
-899 px, 2.6 % more than the factory value), and the factory distortion. The exporter turns them
+the active lens's focal length for every frame, including focus breathing (main lens at 0.65 on its
+focus scale: 899 px, 2.6 % more than the factory value), and the factory distortion. The exporter turns them
 into start values, and the camera–IMU calibration uses them as they are.
 
 ## 1. Build the Kalibr image (once)
@@ -94,7 +96,7 @@ output goes to `kalibr.log`; the terminal shows the steps and a rated summary:
 | Camera–IMU distance | a few cm | too little translation in the brisk part |
 | Reprojection error | below ~1 px | blur (exposure too long), grid too small |
 
-**Measured on the Pixel 6** (recommended settings, focus 0.65 dpt, 2026-11-11):
+**Measured on the Pixel 6** (2026-11-11, focus 0.65 on the phone's scale, i.e. ~4 m; the default is now 1.1, so fx is a little larger, ~904 px — the per-frame value handles that):
 
 | | Main lens (zoom 1.0) | Ultrawide (zoom 0.67) |
 |---|---|---|

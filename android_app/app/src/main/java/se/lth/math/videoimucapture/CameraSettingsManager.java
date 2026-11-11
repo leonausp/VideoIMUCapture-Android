@@ -243,6 +243,27 @@ public class CameraSettingsManager {
                 == CameraSettingFocusMode.FocusMode.TOUCH_AUTO;
     }
 
+    /** Autofocus mode (continuous or tap): the focus is locked for each recording. */
+    public boolean isAutoFocus() {
+        CameraSetting s = mCameraSettings.get(Setting.FOCUS_MODE);
+        return s != null && ((CameraSettingFocusMode) s).getMode()
+                != CameraSettingFocusMode.FocusMode.MANUAL;
+    }
+
+    /** Closest focus in diopters (the slider's max); 0 for a fixed-focus lens, null if unknown. */
+    public Float getMinFocusDistance() {
+        CameraSetting s = mCameraSettings.get(Setting.FOCUS_MODE);
+        return s == null ? null : ((CameraSettingFocusMode) s).minFocusDistance();
+    }
+
+    /** Put the focus setting (mode, distance) back on a request, e.g. after a record lock. */
+    public void restoreFocus(CaptureRequest.Builder builder) {
+        CameraSetting s = mCameraSettings.get(Setting.FOCUS_MODE);
+        if (s != null) {
+            s.updateCaptureRequest(builder);
+        }
+    }
+
     public Boolean exposureOnTouch() {
         return ((CameraSettingExposureMode) mCameraSettings.get(Setting.EXPOSURE_MODE)).getMode()
                 == CameraSettingExposureMode.Mode.TOUCH_AUTO;
@@ -667,6 +688,10 @@ class CameraSettingFocusMode extends CameraSetting {
 
     public FocusMode getMode() {
         return FocusMode.valueOf(getModeString());
+    }
+
+    Float minFocusDistance() {
+        return mMinFocusDistance;
     }
 
     private String getModeString() {

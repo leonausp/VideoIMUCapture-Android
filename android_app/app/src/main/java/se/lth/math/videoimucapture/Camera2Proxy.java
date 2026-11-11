@@ -668,6 +668,77 @@ public class Camera2Proxy {
         return r;
     }
 
+    // --- Focus locked for a recording (autofocus modes) ---
+
+    private volatile boolean mFocusLocked = false;
+
+    /**
+     * Record start with autofocus: hold the lens where autofocus has put it (the last result's
+     * LENS_FOCUS_DISTANCE), autofocus off, so the focal length -- which moves ~1.4 % per
+     * diopter on the Pixel 6 main lens -- stays constant through the clip. The per-frame
+     * LENS_INTRINSIC_CALIBRATION then records the focal for this focus. Returns the distance
+     * (diopters, the phone's scale), or null if there was none (focus then stays automatic).
+     */
+    public Float lockFocus() {
+        if (mCaptureSession == null || mPreviewRequestBuilder == null) {
+            return null;
+        }
+        TotalCaptureResult r = mLastResult;
+        Float d = r != null ? r.get(CaptureResult.LENS_FOCUS_DISTANCE) : null;
+        if (d == null) {
+            Log.w(TAG, "focus lock: no focus distance in the last result; autofocus stays on");
+            return null;
+        }
+        try {
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                    CameraMetadata.CONTROL_AF_TRIGGER_IDLE);
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                    CameraMetadata.CONTROL_AF_MODE_OFF);
+            mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, d);
+            reissuePreview();
+            mFocusLocked = true;
+            Log.i(TAG, String.format(Locale.US, "focus locked at %.3f diopters (phone scale)", d));
+            return d;
+        } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+            Log.w(TAG, "Could not lock focus: " + e);
+            return null;
+        }
+    }
+
+    /** Record end: autofocus again, as the setting says. */
+    public void releaseFocus() {
+        if (!mFocusLocked) {
+            return;
+        }
+        mFocusLocked = false;
+        if (mCaptureSession == null || mPreviewRequestBuilder == null) {
+            return;
+        }
+        try {
+            mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, null);
+            mCameraSettingsManager.restoreFocus(mPreviewRequestBuilder);
+            reissuePreview();
+            Log.i(TAG, "focus released: autofocus");
+        } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+            Log.w(TAG, "Could not release focus: " + e);
+        }
+    }
+
+    public boolean isFocusLocked() {
+        return mFocusLocked;
+    }
+
+    /** Where the lens is now (diopters, the phone's scale), from the last result; or null. */
+    public Float getLastFocusDistance() {
+        TotalCaptureResult r = mLastResult;
+        return r != null ? r.get(CaptureResult.LENS_FOCUS_DISTANCE) : null;
+    }
+
+    /** Tap to focus: focus on the image centre again with the next result (e.g. mode change). */
+    public void requestCentreFocus() {
+        mStartFocusDone = false;
+    }
+
     /** Record end: back to auto exposure as the light meter. */
     public void releaseShutterPriority() {
         if (mShutterPriorityLocked) {
@@ -1025,6 +1096,7 @@ public class Camera2Proxy {
     }
 
     private void initPreviewRequest() {
+        mStartFocusDone = false;   // tap-to-focus: focus on the centre once this preview runs
         try {
             mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
 
@@ -1168,6 +1240,15 @@ public class Camera2Proxy {
 
                     // Keep the latest metered result: a bracket steps away from this.
                     mLastResult = result;
+
+                    // Tap to focus: until the first tap the lens would sit wherever it was.
+                    // Focus once on the image centre when the preview starts.
+                    if (!mStartFocusDone && !mRecordingMetadata && !mFocusLocked
+                            && mCameraSettingsManager.focusOnTouch() && sensorArraySize != null) {
+                        mStartFocusDone = true;
+                        focusAtSensorPoint(sensorArraySize.width() / 2,
+                                sensorArraySize.height() / 2);
+                    }
 
                     // Periodic stereo pairs (#36) arm on this clock and match their rows
                     // from these results. A no-op when the feature is off.
@@ -1315,8 +1396,14 @@ public class Camera2Proxy {
                 }
             };
 
+    private volatile boolean mStartFocusDone = false;
+
     void changeManualFocusPoint(float eventX, float eventY, int viewWidth, int viewHeight) {
         if (!mCameraSettingsManager.focusOnTouch() && !mCameraSettingsManager.exposureOnTouch()) {
+            return;
+        }
+        // While recording the focus is locked (the focal length must not change in a clip).
+        if (mFocusLocked || mRecordingMetadata) {
             return;
         }
         // Set region for focus, must be present in all capture requests during auto focus.
@@ -1327,6 +1414,14 @@ public class Camera2Proxy {
         } else {
             y = (int) ((eventY / (float) viewHeight) * (float) sensorArraySize.height());
             x = (int) ((eventX / (float) viewWidth) * (float) sensorArraySize.width());
+        }
+        focusAtSensorPoint(x, y);
+    }
+
+    /** Autofocus (and, in touch exposure, metering) on a point in sensor-array pixels. */
+    private void focusAtSensorPoint(int x, int y) {
+        if (mCaptureSession == null || mPreviewRequestBuilder == null) {
+            return;
         }
         final int halfTouchWidth = 400;
         final int halfTouchHeight = 400;
@@ -1347,10 +1442,14 @@ public class Camera2Proxy {
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
         }
         // Update running requests with metering regions
+        // The session can vanish between the check above and here (a tap while the camera
+        // reopens after sleep or an app switch): reissuePreview() then throws
+        // IllegalStateException, which crashed the app (2026-11-11). Drop the tap instead.
         try {
             reissuePreview();
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
+        } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+            Log.w(TAG, "focus/metering point dropped: " + e);
+            return;
         }
 
         // Send triggers
@@ -1362,8 +1461,8 @@ public class Camera2Proxy {
                 mCaptureSession.capture(
                         mPreviewRequestBuilder.build(),
                         mSessionCaptureCallback, mBackgroundHandler);
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
+            } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+                Log.w(TAG, "autofocus trigger dropped: " + e);
             }
 
             // Reset Trigger state for future requests

@@ -230,8 +230,8 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Exposure on the preview: two stacked buttons in the bottom-right corner, level with
-         RECORD (exposure time, ISO). Tapping one opens the adjust bar above them; values are the same settings as on the settings
+    <!-- Exposure on the preview: stacked buttons in the bottom-right corner, level with
+         RECORD (focus, exposure time, ISO). Tapping one opens the adjust bar above them; values are the same settings as on the settings
          screen and apply to the preview at once. Locked while recording. -->
     <LinearLayout
         android:id="@+id/exposure_chips"
@@ -242,6 +242,25 @@
         app:layout_constraintBottom_toBottomOf="@+id/capture_controls_row"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/capture_controls_row">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/focus_chip"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:textSize="13sp"
+            android:minHeight="0dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            app:backgroundTint="#99000000"
+            app:strokeColor="#CCFFFFFF"
+            android:maxLines="1"
+            tools:text="Focus: tap" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/exposure_chip"
@@ -329,8 +348,19 @@
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:minWidth="48dp"
             android:text="@string/exposure_auto"
             android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/panel_af"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="48dp"
+            android:text="@string/focus_af"
+            android:textColor="#FFFFFF"
+            android:visibility="gone" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

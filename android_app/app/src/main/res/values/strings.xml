@@ -13,6 +13,8 @@
     <string name="exposure_minus">−</string>
     <string name="exposure_plus">+</string>
     <string name="exposure_auto">AUTO</string>
+    <string name="focus_tap">TAP</string>
+    <string name="focus_af">AF</string>
     <string name="back_toolbar">Back</string>
 
     <string name="record_description">Toggle video recording</string>
