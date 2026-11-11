@@ -81,6 +81,64 @@ public class CameraUtils {
         }
     }
 
+    /**
+     * The rear camera to open: {@code preferred} if it exists and faces back, else the first
+     * rear camera. Phones expose their lenses differently: the Pixel 6 has ONE rear camera (a
+     * logical multi-camera; the ultrawide is reached by zoom), the Galaxy S21 has the ultrawide
+     * as a separate rear camera id ("2"), which zoom cannot reach.
+     */
+    public static String getRearCameraId(CameraManager manager, String preferred) {
+        if (preferred != null && !preferred.isEmpty()) {
+            try {
+                for (String id : manager.getCameraIdList()) {
+                    if (id.equals(preferred)) {
+                        Integer facing = manager.getCameraCharacteristics(id)
+                                .get(CameraCharacteristics.LENS_FACING);
+                        if (facing != null && facing == CameraMetadata.LENS_FACING_BACK) {
+                            return id;
+                        }
+                    }
+                }
+            } catch (CameraAccessException | IllegalArgumentException e) {
+                e.printStackTrace();
+            }
+        }
+        return getRearCameraId(manager);
+    }
+
+    /** Rear cameras the phone exposes: id and a label like "Camera 2 · 2.2 mm · wide angle". */
+    public static java.util.List<String[]> listRearCameras(CameraManager manager) {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        Float reference = null;
+        try {
+            for (String id : manager.getCameraIdList()) {
+                CameraCharacteristics c = manager.getCameraCharacteristics(id);
+                Integer facing = c.get(CameraCharacteristics.LENS_FACING);
+                if (facing == null || facing != CameraMetadata.LENS_FACING_BACK) {
+                    continue;
+                }
+                float[] f = c.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+                float mm = (f != null && f.length > 0) ? f[0] : 0f;
+                if (reference == null) {
+                    reference = mm;   // the first rear camera is the default one
+                }
+                String kind = "";
+                if (reference > 0 && mm > 0 && mm < 0.75f * reference) {
+                    kind = " · wide angle";
+                } else if (reference > 0 && mm > 1.4f * reference) {
+                    kind = " · tele";
+                } else if (out.isEmpty()) {
+                    kind = " · main";
+                }
+                out.add(new String[]{id, String.format(java.util.Locale.US,
+                        "Camera %s · %.1f mm%s", id, mm, kind)});
+            }
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            e.printStackTrace();
+        }
+        return out;
+    }
+
     public static String getRearCameraId(CameraManager manager) {
         try {
             String[] cameraIdList = manager.getCameraIdList();

@@ -82,6 +82,11 @@ camera's timestamp source is REALTIME (`camera.json` → `camera_info.timestamp_
     899 px vs. the factory 877 px. Valid when the zoom shows the lens's full field (1.0 for the
     main lens, the minimum zoom for the ultrawide). The static factory values stay in
     `camera.json` as `factory_intrinsics_logical`.
+  - **Sources, best first** (`camera.json` → `derived.intrinsics_quality`): `phone-per-frame`
+    (above), `phone-factory` (static factory values), `ESTIMATE` (no calibration for this lens,
+    e.g. the Galaxy S21 ultrawide: focal length in mm × sensor pixels / sensor width, principal
+    point = image centre, ~1–3 %; **not** a factory value, and the report, `sensor.yaml` and
+    `calibrate.sh` say so).
   - **Distortion:** the recording lens's factory `LENS_DISTORTION`, rotated to the video
     (tangential terms; tested). EuRoC's radial-tangential has no k3, and dropping it moves the
     Pixel 6 main lens's corners by ~56 px, so k1, k2 are **refit** over the image to include k3

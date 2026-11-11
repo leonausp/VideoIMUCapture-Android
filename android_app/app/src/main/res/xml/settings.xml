@@ -23,6 +23,12 @@
             app:persistent="false"
             app:summary="Sensitivity"/>
         <ListPreference
+            app:key="rear_camera"
+            app:title="Rear camera"
+            app:persistent="false"
+            app:isPreferenceVisible="false"
+            app:useSimpleSummaryProvider="true"/>
+        <ListPreference
             app:key="focus_mode"
             app:title="Focus"
             app:persistent="false"

@@ -956,7 +956,9 @@ public class Camera2Proxy {
 
     public Size configureCamera() {
         try {
-            mCameraIdStr = CameraUtils.getRearCameraId(mCameraManager);
+            mCameraIdStr = CameraUtils.getRearCameraId(mCameraManager,
+                    androidx.preference.PreferenceManager.getDefaultSharedPreferences(mActivity)
+                            .getString("rear_camera", null));
             mCameraCharacteristics = mCameraManager.getCameraCharacteristics(mCameraIdStr);
 
             // Update settings to reflect Characteristics

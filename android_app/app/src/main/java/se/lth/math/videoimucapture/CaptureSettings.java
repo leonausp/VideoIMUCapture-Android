@@ -72,6 +72,7 @@ public class CaptureSettings extends PreferenceFragmentCompat {
 
         CameraSettingsManager cameraSettingsManager = ((CameraCaptureActivity) getActivity()).getmCameraSettingsManager();
         cameraSettingsManager.updatePreferences(getPreferenceScreen());
+        setUpRearCamera();
 
         // Basic vs expert: the expert categories are shown only with the switch on. Visibility is
         // set on the CATEGORIES, so settings the camera code hides inside them stay hidden.
@@ -93,6 +94,46 @@ public class CaptureSettings extends PreferenceFragmentCompat {
 
     }
 
+
+    /**
+     * "Rear camera": only shown when the phone exposes more than one rear camera (e.g. the
+     * Galaxy S21's ultrawide is its own camera id; on the Pixel 6 there is one, and the zoom
+     * reaches the ultrawide). Changing it reopens the camera.
+     */
+    private void setUpRearCamera() {
+        androidx.preference.ListPreference p = findPreference("rear_camera");
+        if (p == null) {
+            return;
+        }
+        android.hardware.camera2.CameraManager cm = (android.hardware.camera2.CameraManager)
+                requireContext().getSystemService(android.content.Context.CAMERA_SERVICE);
+        java.util.List<String[]> cams = CameraUtils.listRearCameras(cm);
+        if (cams.size() < 2) {
+            p.setVisible(false);
+            return;
+        }
+        String[] ids = new String[cams.size()];
+        String[] labels = new String[cams.size()];
+        for (int i = 0; i < cams.size(); i++) {
+            ids[i] = cams.get(i)[0];
+            labels[i] = cams.get(i)[1];
+        }
+        p.setEntries(labels);
+        p.setEntryValues(ids);
+        android.content.SharedPreferences prefs =
+                androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+        p.setValue(CameraUtils.getRearCameraId(cm, prefs.getString("rear_camera", null)));
+        p.setVisible(true);
+        p.setOnPreferenceChangeListener((pref, value) -> {
+            prefs.edit().putString("rear_camera", (String) value).commit();
+            android.widget.Toast.makeText(requireContext(), "Switching camera…",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            androidx.fragment.app.FragmentActivity a = requireActivity();
+            a.getSupportFragmentManager().popBackStackImmediate();
+            a.recreate();   // reopens the camera with the new id
+            return false;   // already stored
+        });
+    }
 
     private static final String[] EXPERT_CATEGORIES = {
             "general_category", "stabilization_category",

@@ -277,16 +277,38 @@ def export_session(sess, R, args, report):
             "fx": intr[0], "fy": intr[1], "cx": intr[2], "cy": intr[3],
             "note": "static LENS_INTRINSIC_CALIBRATION of the camera the app opened (logical = main "
                     "lens on the Pixel 6), scaled and rotated by the app"}
+    # Start intrinsics, best source first. "intrinsics_quality" says which one was used:
+    #   phone-per-frame : the HAL's per-frame calibration of the recording lens (Pixel 6, S21 main)
+    #   phone-factory   : the static factory calibration (no per-frame value)
+    #   ESTIMATE        : NOT a calibration -- focal length (mm) x sensor pixels / sensor width,
+    #                     principal point = image centre (lenses without factory values, e.g. the
+    #                     S21 ultrawide). Expect ~1-3 % on fx and 0.5-2 % on the centre.
     per_frame, why = start_intrinsics(cm, list(d.video_meta))
     if per_frame:
         derived.update(per_frame)
         derived["intrinsics_source"] = why
-    elif len(intr) >= 4:
+        derived["intrinsics_quality"] = "phone-per-frame"
+    elif len(intr) >= 4 and intr[0] > 0:
         derived.update({"fx": intr[0], "fy": intr[1], "cx": intr[2], "cy": intr[3],
                         "intrinsics_source": "static factory intrinsics (%s)" % why})
-        say("start intrinsics: static factory values (%s)" % why)
-    if per_frame or len(intr) >= 4:
-        say("start intrinsics: fx %.1f cx %.1f cy %.1f" % (derived["fx"], derived["cx"], derived["cy"]))
+        derived["intrinsics_quality"] = "phone-factory"
+    else:
+        est = [r.est_focal_length_pix for r in d.video_meta if r.est_focal_length_pix > 0]
+        if est:
+            f = float(np.median(est))
+            derived.update({"fx": f, "fy": f, "cx": (cm.resolution.width - 1) / 2.0,
+                            "cy": (cm.resolution.height - 1) / 2.0,
+                            "intrinsics_source": "ESTIMATE, not a factory or calibrated value: focal "
+                                                 "length (mm) x sensor pixels / sensor width, from the "
+                                                 "app's per-frame est_focal_length_pix (median); "
+                                                 "principal point = image centre; ~1-3 %% (%s)" % why})
+            derived["intrinsics_quality"] = "ESTIMATE"
+            say("WARNING: the phone gives no calibration for this lens. Start intrinsics are an "
+                "ESTIMATE from focal length and sensor size (~1-3 %), not factory values: "
+                "calibrate the lens (calibrate.sh cam/all) or let the SLAM system refine them")
+    if derived.get("fx"):
+        say("start intrinsics (%s): fx %.1f cx %.1f cy %.1f" % (derived["intrinsics_quality"],
+            derived["fx"], derived["cx"], derived["cy"]))
     lens_ids = sorted({r.active_physical_camera_id for r in d.video_meta if r.active_physical_camera_id})
     dist_from = getattr(cm, "distortion_camera_id", "")
     if len(lens_ids) == 1 and dist_from and dist_from != lens_ids[0]:
@@ -385,10 +407,15 @@ def export_session(sess, R, args, report):
     dist = derived.get("distortion_radtan4_image") or derived.get("distortion_radtan_image")
     cam_yaml = {
         "sensor_type": "camera",
-        "comment": "Zero-Friction VIO SLAM export. START VALUES: intrinsics are the phone's per-frame "
-                   "values for the recording lens, distortion its factory values (k3 refit), "
-                   "T_BS is identity. Good enough for 'calibrate.sh imucam --camchain factory'; "
-                   "replace T_BS with the Kalibr result (T_cam_imu, timeshift).",
+        "comment": ("Zero-Friction VIO SLAM export. START VALUES. Intrinsics: %s. Distortion: %s. "
+                    "T_BS is identity: replace it with the Kalibr result (T_cam_imu, timeshift)."
+                    % ({"phone-per-frame": "the phone's per-frame values for the recording lens",
+                        "phone-factory": "the phone's static factory values",
+                        "ESTIMATE": "ESTIMATE from focal length and sensor size, NOT factory or "
+                                    "calibrated (~1-3 %); calibrate the lens"}
+                       .get(derived.get("intrinsics_quality"), "none"),
+                       "the phone's factory values (k3 refit)" if dist else
+                       "NONE reported; assumed undistorted, calibrate the lens")),
         "T_BS": {"cols": 4, "rows": 4, "data": identity},
         "rate_hz": round(cam_hz, 3),
         "resolution": [cm.resolution.width, cm.resolution.height],

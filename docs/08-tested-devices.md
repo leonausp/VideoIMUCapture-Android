@@ -112,7 +112,8 @@ camera census (`data/other_phones/census_SM-G991B.json`, not committed).
 |---|---|---|
 | Timestamp source | **REALTIME** | camera and IMU on one clock |
 | IMU | uncalibrated gyro, accelerometer and magnetometer; **500 Hz**, perfectly regular | |
-| Rear camera 0 | standalone (not a logical multi-camera), 5.4 mm, zoom 1.0–8.0 | the ultrawide (camera 2, 2.2 mm) is a separate id the app does not open; zoom < 1 does not exist here |
+| Rear camera 0 | standalone (not a logical multi-camera), 5.4 mm, zoom 1.0–8.0 | the ultrawide (camera 2, 2.2 mm) is a separate id: choose it under Settings → **Rear camera**; zoom < 1 does not exist here |
+| Ultrawide (camera 2) | LIMITED level, manual exposure; **no factory intrinsics or distortion** | the export uses an **ESTIMATE** (focal length × sensor pixels / sensor width, ≈ 561 px; ~1–3 %) and says so; calibrate this lens for good results |
 | Video size | **1440×1080** (stored 1080×1440); 1280×960 is not offered | the app picks the next 4:3 size |
 | Factory intrinsics | fx 3073.8 sensor px → **1097.8 px** in the video; per-frame value constant (no focus breathing modelled) | start values fine |
 | Factory distortion | **zeros**; no distortion-correction control | unknown whether the image is corrected internally: calibrate the lens or let the SLAM system estimate it; the export warns |
