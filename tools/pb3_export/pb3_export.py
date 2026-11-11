@@ -313,6 +313,14 @@ def export_session(sess, R, args, report):
     dist_from = getattr(cm, "distortion_camera_id", "")
     if len(lens_ids) == 1 and dist_from and dist_from != lens_ids[0]:
         say("WARNING: frames come from lens %s but the distortion is lens %s's" % (lens_ids[0], dist_from))
+    ois_on = [r for r in d.video_meta if has_field(r, "lens_optical_stabilization_mode")
+              and r.HasField("lens_optical_stabilization_mode") and r.lens_optical_stabilization_mode == 1]
+    if ois_on:
+        shifts = [math.hypot(q.x_shift, q.y_shift) for r in d.video_meta for q in r.OIS_samples]
+        say("WARNING: optical stabilisation (OIS) was ON in %d of %d frames: the lens moved by up to "
+            "%.1f px against the IMU. SLAM/VIO with fixed intrinsics will suffer; record with OIS off. "
+            "(The phone's per-frame principal point follows the shift, see lens_intrinsic_calibration.)"
+            % (len(ois_on), len(d.video_meta), max(shifts) if shifts else float("nan")))
     if not list(cm.distortion_params):
         say("WARNING: no factory distortion in the recording (the phone reports none, or an app "
             "version before 2026-11-11); start values assume an undistorted lens. Calibrate the lens "
