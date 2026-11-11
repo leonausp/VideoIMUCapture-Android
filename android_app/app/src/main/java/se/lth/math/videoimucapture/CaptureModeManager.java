@@ -217,8 +217,11 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
         // (auto exposure off) for the whole clip. The request swap takes a few frames to reach
         // the pixels, so the first recorded frame waits for it, as after a pair warm-up.
         mShutterPriorityLocked = false;
+        // Already locked with LOCK before RECORD: record with exactly those values, and keep the
+        // lock afterwards (it is the user's, released with UNLOCK or any exposure change).
         if (proxy != null && mActivity.getmCameraSettingsManager() != null
-                && mActivity.getmCameraSettingsManager().isShutterPriority()) {
+                && mActivity.getmCameraSettingsManager().isShutterPriority()
+                && proxy.getUserExposureLock() == null) {
             mShutterPriorityLocked = proxy.lockShutterPriority() != null;
             if (mShutterPriorityLocked) {
                 mVideoStartHoldMs = Math.max(mVideoStartHoldMs, SHUTTER_PRIORITY_SETTLE_MS);

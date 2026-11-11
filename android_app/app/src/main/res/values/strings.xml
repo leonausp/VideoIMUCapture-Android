@@ -14,6 +14,8 @@
     <string name="exposure_plus">+</string>
     <string name="exposure_auto">AUTO</string>
     <string name="focus_tap">TAP</string>
+    <string name="exposure_lock">LOCK</string>
+    <string name="exposure_unlock">UNLOCK</string>
     <string name="focus_af">AF</string>
     <string name="back_toolbar">Back</string>
 

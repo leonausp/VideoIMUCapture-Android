@@ -774,6 +774,33 @@ public class Camera2Proxy {
         mStartFocusDone = false;
     }
 
+    // --- LOCK button: shutter priority frozen BEFORE recording (preview = recording) ---
+
+    private volatile ShutterPriority.Result mUserExposureLock = null;
+
+    /** Freeze the metered shutter-priority values now. Null if there is nothing to meter yet. */
+    public ShutterPriority.Result lockUserExposure() {
+        ShutterPriority.Result r = lockShutterPriority();
+        mUserExposureLock = r;
+        if (r != null) {
+            Log.i(TAG, "exposure locked by the user before recording");
+        }
+        return r;
+    }
+
+    public void releaseUserExposureLock() {
+        if (mUserExposureLock != null) {
+            mUserExposureLock = null;
+            releaseShutterPriority();
+            Log.i(TAG, "exposure lock released by the user");
+        }
+    }
+
+    /** The values held by LOCK, or null. */
+    public ShutterPriority.Result getUserExposureLock() {
+        return mUserExposureLock;
+    }
+
     /** Record end: back to auto exposure as the light meter. */
     public void releaseShutterPriority() {
         if (mShutterPriorityLocked) {
