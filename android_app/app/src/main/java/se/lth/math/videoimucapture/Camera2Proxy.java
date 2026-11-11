@@ -1085,6 +1085,7 @@ public class Camera2Proxy {
     }
 
     private void initPreviewRequest() {
+        mStartFocusDone = false;   // tap-to-focus: focus on the centre once this preview runs
         try {
             mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
 
@@ -1228,6 +1229,15 @@ public class Camera2Proxy {
 
                     // Keep the latest metered result: a bracket steps away from this.
                     mLastResult = result;
+
+                    // Tap to focus: until the first tap the lens would sit wherever it was.
+                    // Focus once on the image centre when the preview starts.
+                    if (!mStartFocusDone && !mRecordingMetadata && !mFocusLocked
+                            && mCameraSettingsManager.focusOnTouch() && sensorArraySize != null) {
+                        mStartFocusDone = true;
+                        focusAtSensorPoint(sensorArraySize.width() / 2,
+                                sensorArraySize.height() / 2);
+                    }
 
                     // Periodic stereo pairs (#36) arm on this clock and match their rows
                     // from these results. A no-op when the feature is off.
@@ -1375,8 +1385,14 @@ public class Camera2Proxy {
                 }
             };
 
+    private volatile boolean mStartFocusDone = false;
+
     void changeManualFocusPoint(float eventX, float eventY, int viewWidth, int viewHeight) {
         if (!mCameraSettingsManager.focusOnTouch() && !mCameraSettingsManager.exposureOnTouch()) {
+            return;
+        }
+        // While recording the focus is locked (the focal length must not change in a clip).
+        if (mFocusLocked || mRecordingMetadata) {
             return;
         }
         // Set region for focus, must be present in all capture requests during auto focus.
@@ -1387,6 +1403,14 @@ public class Camera2Proxy {
         } else {
             y = (int) ((eventY / (float) viewHeight) * (float) sensorArraySize.height());
             x = (int) ((eventX / (float) viewWidth) * (float) sensorArraySize.width());
+        }
+        focusAtSensorPoint(x, y);
+    }
+
+    /** Autofocus (and, in touch exposure, metering) on a point in sensor-array pixels. */
+    private void focusAtSensorPoint(int x, int y) {
+        if (mCaptureSession == null || mPreviewRequestBuilder == null) {
+            return;
         }
         final int halfTouchWidth = 400;
         final int halfTouchHeight = 400;

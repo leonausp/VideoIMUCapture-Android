@@ -29,8 +29,9 @@ The defaults ("Reset to recommended settings") are chosen for VIO, so everything
 change the camera's geometry stays fixed:
 
 - **Main lens, 1280×960, no OIS, no EIS, no distortion correction.**
-- **Autofocus, locked at RECORD:** the preview focuses automatically; when you press RECORD the lens
-  is held where it is for the whole clip, because the focal length changes with focus. The export
+- **Tap to focus, locked at RECORD:** the preview focuses on the image centre at start and wherever
+  you tap; when you press RECORD the lens is held there for the whole clip, because the focal
+  length changes with focus. The export
   records each clip's own focal length, so clips may use different focus.
 - **Shutter priority:** exposure fixed at **5 ms** against motion blur; the ISO is metered for the
   scene in the preview and **locked when you press RECORD**, so every frame of a clip has the same

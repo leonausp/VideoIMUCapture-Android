@@ -32,14 +32,16 @@ final class RecommendedDefaults {
     static final boolean OIS_DATA = true;
     static final boolean DVS = false;
 
-    // Focus: CONTINUOUS_AUTO in the preview, LOCKED at record start (CaptureModeManager): the
+    // Focus: TAP TO FOCUS (TOUCH_AUTO; the preview focuses once on the centre at start, then
+    // wherever you tap -- continuous autofocus sometimes picks odd targets), LOCKED at record
+    // start (CaptureModeManager): the
     // focal length moves with focus (~1.4 %/dpt on the Pixel 6 main lens), so it must not change
     // within a clip, but it may differ between clips -- the export takes the per-frame focal
     // (LENS_INTRINSIC_CALIBRATION, which follows the focus), and the camera-IMU calibration does
     // not depend on focus. A fixed number would not carry across phones: the Pixel 6's focus
     // scale is offset (phone value = 0.40 + 1.08 x real diopters, measured 2026-11-11).
     // FOCUS_DISTANCE is MANUAL's value: 1.1 on that scale = ~1.5 m real.
-    static final String FOCUS_MODE = "CONTINUOUS_AUTO";
+    static final String FOCUS_MODE = "TOUCH_AUTO";
     static final boolean FOCUS_HYPERFOCAL = false;
     static final float FOCUS_DISTANCE = 1.1f;
 

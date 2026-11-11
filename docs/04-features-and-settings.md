@@ -76,7 +76,7 @@ The screen has a **basic section** at the top:
   stabilisation, focus, exposure mode, recording);
 - **Reset to recommended settings**, which puts everything back to the recommended values for
   VIO: main lens, Video only, 1280×960, shutter priority at 5 ms (manual ISO starts at 300), manual
-  autofocus locked when recording, OIS off with OIS data on, no EIS or distortion correction.
+  tap to focus (locked when recording), OIS off with OIS data on, no EIS or distortion correction.
 
 These defaults live in one place, `RecommendedDefaults.java`. A unit test checks them, and also
 checks that `settings.xml` declares the same defaults.
@@ -113,7 +113,7 @@ in your data that stabilization was off.
 
 | Setting | VIO recommendation |
 |---|---|
-| Auto Focus Mode: Auto / Tap to focus / Manual | **Auto, locked when recording** (default). The preview focuses continuously; at RECORD the lens is held where autofocus put it, for the whole clip (Tap to focus: where you tapped). Focus changes the focal length measurably (Pixel 6 main lens: ~1.4 % per diopter, up to ~7 %; see [lens breathing](#focus-changes-the-focal-length-lens-breathing)), so it must not change **within** a clip. **Between** clips it may: the export takes each clip's per-frame focal length (`LENS_INTRINSIC_CALIBRATION`), and the camera–IMU calibration does not depend on focus. **Manual** fixes a distance (below). |
+| Auto Focus Mode: Auto / Tap to focus / Manual | **Tap to focus, locked when recording** (default): the preview focuses once on the image centre when it starts, then wherever you tap; at RECORD the lens is held there for the whole clip, and taps are ignored while recording. **Auto** focuses continuously (it sometimes picks odd targets) and is also locked at RECORD. Focus changes the focal length measurably (Pixel 6 main lens: ~1.4 % per diopter, up to ~7 %; see [lens breathing](#focus-changes-the-focal-length-lens-breathing)), so it must not change **within** a clip. **Between** clips it may: the export takes each clip's per-frame focal length (`LENS_INTRINSIC_CALIBRATION`), and the camera–IMU calibration does not depend on focus. **Manual** fixes a distance (below). |
 | Focus Distance | in **diopters** (1 / metres) on the **phone's own scale**, which the Pixel 6 marks APPROXIMATE and which is offset: tap-to-focus on a target at distances measured from the target's size gave **phone value ≈ 0.40 + 1.08 × real diopters** (0.59–2.05 m, 2026-11-11). So the phone's "infinity" is 0.40, and 0.65 is really ~4 m. Used in **Manual** only; **default 1.1 (≈ 1.5 m real)**: defocus blur below ~2 px from ~0.8 m to infinity (calculated, f/1.85 at 1280×960). For mostly distant scenes ~0.55 (≈ 7 m). A fixed number does not carry across phones, which is why the default is autofocus. The ultrawide is fixed-focus and ignores this. |
 
 ### Auto Exposure

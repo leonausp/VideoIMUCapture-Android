@@ -89,7 +89,7 @@ Ultrawide values (pinned, 960×1280):
 - **Video Size:** 4:3 with "Maximize Sensor Area", e.g. 1280×960 (stored as 960×1280), or
   1920×1440 if you also want Gaussian splats.
 - **Exposure:** manual, 3–8 ms, ISO as needed; "Freeze exposure while recording" on.
-- **Focus:** autofocus, **locked when recording** (the default). The main lens's focus scale is
+- **Focus:** tap to focus (centre at start), **locked when recording** (the default). The main lens's focus scale is
   offset: phone value ≈ 0.40 + 1.08 × real diopters (tap-to-focus on a target, distances from its
   size, 2026-11-11), so "infinity" is 0.40, the computed hyperfocal (0.31) is beyond it, and a fixed
   number is phone-specific. For Manual, 1.1 ≈ 1.5 m. The ultrawide is fixed-focus.

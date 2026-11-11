@@ -38,8 +38,9 @@ public class RecommendedDefaultsTest {
         // default, ISO is metered per scene instead).
         assertEquals(300, RecommendedDefaults.ISO);
         // Deliberate difference: the recordings used a fixed manual focus; the default is
-        // autofocus in the preview, locked at record start (the export follows the per-frame focal).
-        assertEquals("CONTINUOUS_AUTO", RecommendedDefaults.FOCUS_MODE);
+        // tap to focus (centre at start), locked at record start (the export follows the
+        // per-frame focal).
+        assertEquals("TOUCH_AUTO", RecommendedDefaults.FOCUS_MODE);
         // MANUAL's value: 1.1 on the Pixel 6's offset focus scale = ~1.5 m real (tap-to-focus on
         // a target: phone value = 0.40 + 1.08 x diopters). Hyperfocal off: it lands beyond infinity.
         assertFalse(RecommendedDefaults.FOCUS_HYPERFOCAL);
