@@ -18,6 +18,7 @@
         <item>Continuous</item>
         <item>Fix on Touch</item>
         <item>Manual</item>
+        <item>Shutter priority (auto ISO)</item>
     </string-array>
 
     <!-- Video codec. HEVC is 40-50% smaller than H.264 at the same visual quality and keeps

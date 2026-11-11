@@ -3,9 +3,11 @@ package se.lth.math.videoimucapture;
 /**
  * The app's defaults in ONE place: what a fresh install (or "Reset to recommended settings")
  * starts with. They are the settings the Pixel 6 VIO test recordings of 2026-11-11 were made
- * with: main lens through the logical camera, video-only session, 1280x960, manual 5 ms /
- * ISO 1000, manual focus at hyperfocal, OIS off with OIS data on, no stabilisation or distortion
- * correction, exposure frozen while recording.
+ * with: main lens through the logical camera, video-only session, 1280x960, 5 ms exposure,
+ * manual focus at hyperfocal, OIS off with OIS data on, no stabilisation or distortion
+ * correction, exposure frozen while recording. One deliberate difference: exposure is SHUTTER
+ * PRIORITY (5 ms, ISO metered per scene and locked at record start) instead of the fixed ISO 1000
+ * the test recordings used, which only suits that room's light.
  *
  * Code that reads a setting uses these as its fallback, and settings.xml must declare the same
  * defaults for the settings it defines; RecommendedDefaultsTest checks both, so the two places
@@ -34,8 +36,10 @@ final class RecommendedDefaults {
     static final boolean FOCUS_HYPERFOCAL = true;
     static final float FOCUS_DISTANCE = 0f;
 
-    // Exposure: MANUAL where supported
-    static final String EXPOSURE_MODE = "MANUAL";
+    // Exposure: SHUTTER_PRIORITY where supported -- the recordings used MANUAL 5 ms / ISO 1000,
+    // which is right for one room only; shutter priority keeps the 5 ms and meters the ISO per
+    // scene, then locks it for the clip. ISO is the value MANUAL starts from.
+    static final String EXPOSURE_MODE = "SHUTTER_PRIORITY";
     static final float EXPOSURE_MS = 5f;
     static final int ISO = 1000;
     static final boolean LOCK_RADIOMETRY = true;

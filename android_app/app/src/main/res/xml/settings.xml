@@ -38,7 +38,7 @@
         <Preference
             app:key="reset_defaults"
             app:title="Reset to recommended settings"
-            app:summary="Main lens, video only, 1280x960, manual 5 ms / ISO 1000, focus at hyperfocal, OIS off with OIS data on." />
+            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), focus at hyperfocal, OIS off with OIS data on." />
     </PreferenceCategory>
 
     <PreferenceCategory

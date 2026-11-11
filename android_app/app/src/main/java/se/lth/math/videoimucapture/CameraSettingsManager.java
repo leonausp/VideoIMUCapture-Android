@@ -196,6 +196,37 @@ public class CameraSettingsManager {
         return (id == null || "Logical".equals(id)) ? null : id;
     }
 
+    private CameraSettingExposureMode exposureSetting() {
+        return (CameraSettingExposureMode) mCameraSettings.get(Setting.EXPOSURE_MODE);
+    }
+
+    /** Shutter priority: fixed (maximum) exposure, ISO from auto exposure's metering. */
+    public boolean isShutterPriority() {
+        CameraSettingExposureMode e = exposureSetting();
+        return e != null && e.getMode() == CameraSettingExposureMode.Mode.SHUTTER_PRIORITY;
+    }
+
+    public boolean isManualExposure() {
+        CameraSettingExposureMode e = exposureSetting();
+        return e != null && e.getMode() == CameraSettingExposureMode.Mode.MANUAL;
+    }
+
+    public long getTargetExposureNs() {
+        return exposureSetting().targetExposureNs();
+    }
+
+    public int getManualIso() {
+        return exposureSetting().manualIso();
+    }
+
+    public Range<Float> getExposureRangeMs() {
+        return exposureSetting().exposureRangeMs();
+    }
+
+    public Range<Integer> getIsoRange() {
+        return exposureSetting().isoRange();
+    }
+
     public Size getVideoSize() {
         return ((CameraSettingVideoSize) mCameraSettings.get(Setting.VIDEO_SIZE)).getSize();
     }
@@ -762,7 +793,10 @@ class CameraSettingFocusMode extends CameraSetting {
 
 class CameraSettingExposureMode extends CameraSetting {
 
-    enum Mode {CONTINUOUS_AUTO, TOUCH_AUTO, MANUAL}
+    // SHUTTER_PRIORITY: fixed (maximum) exposure time, ISO from auto exposure's metering; see
+    // ShutterPriority. Appended LAST so the ordinals of the older modes (and the description
+    // array R.array.exposure_mode_desc) stay as they were.
+    enum Mode {CONTINUOUS_AUTO, TOUCH_AUTO, MANUAL, SHUTTER_PRIORITY}
     private List<Mode> mValidModes = new ArrayList<>();
     // Set in the constructor: the recommended mode where the camera supports it.
     private Mode DEFAULT_MODE = Mode.TOUCH_AUTO;
@@ -795,6 +829,10 @@ class CameraSettingExposureMode extends CameraSetting {
                     mValidModes.add(Mode.CONTINUOUS_AUTO);
                     break;
             }
+        }
+        // Shutter priority needs both halves: auto exposure to meter, manual to record.
+        if (mValidModes.contains(Mode.MANUAL) && mValidModes.contains(Mode.TOUCH_AUTO)) {
+            mValidModes.add(Mode.SHUTTER_PRIORITY);
         }
         Collections.sort(mValidModes);
         Mode recommended = Mode.valueOf(RecommendedDefaults.EXPOSURE_MODE);
@@ -850,11 +888,33 @@ class CameraSettingExposureMode extends CameraSetting {
         try {
              mode = Mode.valueOf(getModeString());
         } catch (IllegalArgumentException e) {
-            // Stored mode is no longer valid, go to default.
+            mode = null;
+        }
+        if (mode == null || (!mValidModes.isEmpty() && !mValidModes.contains(mode))) {
+            // Stored mode is unknown or not supported by this camera, go to default.
             mSharedPreferences.edit().putString(mModePrefKey, DEFAULT_MODE.toString()).apply();
             mode = DEFAULT_MODE;
         }
         return mode;
+    }
+
+    // --- for shutter priority and the on-screen exposure controls ---
+
+    /** The chosen exposure time (manual, or the shutter-priority maximum), in ns. */
+    long targetExposureNs() {
+        return getExposureNs();
+    }
+
+    int manualIso() {
+        return getISO();
+    }
+
+    Range<Float> exposureRangeMs() {
+        return mExposureTimeRange;
+    }
+
+    Range<Integer> isoRange() {
+        return mISORange;
     }
 
     private String getModeString() {
@@ -905,7 +965,8 @@ class CameraSettingExposureMode extends CameraSetting {
             expPref.setStepValues(CameraValueSteps.SHUTTER_MS);
             expPref.setPersistent(true);
             expPref.setNumber(getExposureMs());
-            expPref.setEnabled(getMode() == Mode.MANUAL);
+            // Exposure time is used by MANUAL and, as the maximum, by SHUTTER_PRIORITY.
+            expPref.setEnabled(getMode() == Mode.MANUAL || getMode() == Mode.SHUTTER_PRIORITY);
 
             // ISO stays an int preference: integer mode BEFORE the first write, so the stored
             // value keeps its type and getInt() reads it back.
@@ -917,9 +978,9 @@ class CameraSettingExposureMode extends CameraSetting {
             isoPref.setEnabled(getMode() == Mode.MANUAL);
 
             modePref.setOnPreferenceChangeListener((preference, newValue) -> {
-                boolean enable = Mode.valueOf((String) newValue) == Mode.MANUAL;
-                expPref.setEnabled(enable);
-                isoPref.setEnabled(enable);
+                Mode chosen = Mode.valueOf((String) newValue);
+                expPref.setEnabled(chosen == Mode.MANUAL || chosen == Mode.SHUTTER_PRIORITY);
+                isoPref.setEnabled(chosen == Mode.MANUAL);
                 return true;
             });
         } else {
@@ -941,6 +1002,9 @@ class CameraSettingExposureMode extends CameraSetting {
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON);
                 builder.set(CaptureRequest.CONTROL_AE_LOCK, true);
                 break;
+            case SHUTTER_PRIORITY:
+                // During the preview auto exposure runs as the LIGHT METER; at record start
+                // Camera2Proxy.lockShutterPriority() turns it off and sets the derived values.
             case CONTINUOUS_AUTO:
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON);
                 builder.set(CaptureRequest.CONTROL_AE_REGIONS, null);
