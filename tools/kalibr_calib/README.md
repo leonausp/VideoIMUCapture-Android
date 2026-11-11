@@ -49,7 +49,8 @@ Allan-variance result.
 `--camchain` can be any Kalibr camchain file, including one from another intrinsics tool, as long as
 its resolution matches the images.
 
-`aprilgrid_png.py` draws the PNG from Kalibr's own tag codes and layout on whole pixels, and checks
+`aprilgrid_png.py` draws the PNG and the PDF from Kalibr's own tag codes and layout on whole pixels,
+with the measuring instructions printed below the grid, and checks
 it with Kalibr's detector (`--check`; all 96 corners at 1920×1080, 1366×768, 1280×800).
 
 ## Timestamps

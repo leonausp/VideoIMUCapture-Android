@@ -95,12 +95,11 @@ EOT
 fi
 
 if [[ $MODE == target ]]; then
-    kalibr "python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png --check"
-    echo "Show $OUT/target.png full screen (F11), measure, and pass the MEASURED tag size as --tag-size."
-    if [[ $PDF == 1 ]]; then
-        kalibr "rosrun kalibr kalibr_create_target_pdf --type apriltag --nx $COLS --ny $ROWS --tsize $TAG_SIZE --tspace 0.3 target"
-        echo "For printing: $OUT/target.pdf, print at ACTUAL SIZE (not fit to page): tags $TAG_SIZE m. Measure anyway."
-    fi
+    pdf_args=""
+    [[ $PDF == 1 ]] && pdf_args="--pdf target.pdf --tag-size $TAG_SIZE"
+    kalibr "python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png $pdf_args --check"
+    echo "Screen: show $OUT/target.png full screen (F11). The image says how to measure it."
+    [[ $PDF == 1 ]] && echo "Paper: print $OUT/target.pdf at ACTUAL SIZE; the sheet says how big the tags are."
     exit 0
 fi
 
