@@ -35,7 +35,7 @@ are welcome, and fixes arrive on hobby time, if at all.
 - **Stills as an instrument**: WALK / OBJECT / PANO modes with a stillness-triggered
   shutter, full-resolution RAW+JPEG bursts, exposure brackets, focus stacks stepped by
   depth of field, a simultaneous ultrawide+main stereo pair (a metric baseline on
-  devices whose factory calibration publishes `LENS_POSE_TRANSLATION`), torch control,
+  devices whose factory calibration publishes `LENS_POSE_TRANSLATION`),
   and per-mode JPEG quality.
 - **`camera_census.json`**, written locally on every launch: each camera's
   characteristics, including factory intrinsics, distortion, and lens pose where the

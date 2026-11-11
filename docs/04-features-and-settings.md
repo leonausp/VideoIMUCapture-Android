@@ -46,7 +46,10 @@ current mode instead (`walk_vid_<date>` etc.).
 
 ## Exposure on the main screen
 
-Two buttons above RECORD show the **exposure time** and the **ISO**.
+Two stacked buttons in the **bottom-right corner**, level with RECORD, show the **exposure time**
+and the **ISO**. The **torch** button is hidden: its light moves with the camera, so the scene's
+brightness changes with every viewpoint (bad for tracking), and it only reaches ~1–2 m. Set
+`TORCH_UI` to `true` in `app/build.gradle` to bring it back.
 - **Adjusting:** tap one to open a bar with **−**, the **value** and **+** (⅓-stop steps). Tap
   the value to type an exact number. For ISO there's also **AUTO**. Changes apply to the preview
   immediately, and they're the same settings as on the settings screen.
@@ -58,7 +61,7 @@ The **default mode is shutter priority**:
   ISO button shows the ISO that gives the same brightness at your exposure time ("ISO auto
   4740"). At **record start** that ISO and the exposure are **locked** for the whole clip.
 - **Bright scenes:** if even the minimum ISO would over-expose, the exposure is **shortened**
-  instead, which means even less blur. The button then shows "(bright)".
+  instead, which means even less blur. The button then shows ☀ after the time.
 - **Dark scenes:** if even the maximum ISO isn't enough, the ISO button shows how many stops the
   frames will be too dark ("▼1.5"). Add light, or accept a longer exposure.
 - **Fixed ISO:** pressing **+** or **−** on ISO switches to fully manual; **AUTO** switches back
@@ -72,7 +75,7 @@ The screen has a **basic section** at the top:
 - **Show expert settings**, a switch that reveals all the categories below (lens, video size,
   stabilisation, focus, exposure mode, recording);
 - **Reset to recommended settings**, which puts everything back to the values the Pixel 6 VIO
-  test recordings were made with: main lens, Video only, 1280×960, manual 5 ms / ISO 1000, manual
+  test recordings were made with: main lens, Video only, 1280×960, shutter priority at 5 ms (manual ISO starts at 300), manual
   focus at hyperfocal, OIS off with OIS data on, no EIS or distortion correction.
 
 These defaults live in one place, `RecommendedDefaults.java`. A unit test checks them, and also

@@ -45,6 +45,9 @@ android {
         // The code is still there: set to true to bring the buttons, mode strip, TESTS menu and
         // stereo-interval setting back. Roll is not affected.
         buildConfigField "boolean", "STILLS_UI", "false"
+        // The torch rides the camera: its light changes with every viewpoint (bad for feature
+        // tracking and direct methods) and reaches ~1-2 m. Hidden; true brings the button back.
+        buildConfigField "boolean", "TORCH_UI", "false"
     }
 
     // BuildConfig.APPLICATION_ID is used for the RollProvider authority (AGP 8 disables it by default).

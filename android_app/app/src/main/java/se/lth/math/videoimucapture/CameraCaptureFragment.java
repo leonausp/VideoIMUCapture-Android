@@ -188,6 +188,9 @@ public class CameraCaptureFragment extends Fragment
         highlightMode(modes.getMode());
 
         mTorchButton = view.findViewById(R.id.torch_button);
+        if (!BuildConfig.TORCH_UI) {
+            mTorchButton.setVisibility(View.GONE);
+        }
         setUpExposureControls(view);
         view.findViewById(R.id.gallery_button).setOnClickListener(v -> {
             if (getActivity() != null) {
@@ -982,7 +985,7 @@ public class CameraCaptureFragment extends Fragment
         boolean manual = "MANUAL".equals(mode);
         boolean sp = "SHUTTER_PRIORITY".equals(mode);
         float ms = prefs().getFloat("exposure", RecommendedDefaults.EXPOSURE_MS);
-        String expText = (manual || sp) ? formatMs(ms) : "Exp auto";
+        String expText = (manual || sp) ? formatMsShort(ms) : "Exp auto";
         String isoText;
         Camera2Proxy proxy = getmCamera2Proxy();
         ShutterPriority.Result r = (sp && proxy != null) ? proxy.shutterPriorityPreview() : null;
@@ -991,7 +994,7 @@ public class CameraCaptureFragment extends Fragment
         } else if (sp && r != null) {
             isoText = "ISO auto " + r.iso;
             if (r.shortened) {
-                expText = formatMs(r.exposureNs / 1e6f) + " (bright)";
+                expText = formatMsShort(r.exposureNs / 1e6f) + " ☀";
             } else if (r.underexposedStops > 0.05) {
                 isoText += String.format(Locale.US, "  ▼%.1f", r.underexposedStops);
             }
@@ -1017,6 +1020,11 @@ public class CameraCaptureFragment extends Fragment
             mPanelAuto.setVisibility(View.VISIBLE);
             mPanelAuto.setAlpha(sp ? 1f : 0.6f);
         }
+    }
+
+    /** Compact form for the stacked corner buttons: "5.00 ms". */
+    private static String formatMsShort(float ms) {
+        return ms >= 10 ? String.format(Locale.US, "%.1f ms", ms) : String.format(Locale.US, "%.2f ms", ms);
     }
 
     /** "5.0 ms", plus the shutter fraction where it is a round one ("1/200 s"). */

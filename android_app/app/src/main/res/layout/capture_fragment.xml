@@ -157,7 +157,7 @@
         android:layout_marginBottom="4dp"
         android:text=""
         android:textAppearance="@style/TextAppearance.MyApp.Overlay"
-        app:layout_constraintBottom_toTopOf="@+id/exposure_panel"
+        app:layout_constraintBottom_toTopOf="@+id/captureMode_strip"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -230,25 +230,26 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Exposure on the preview: two buttons above the record row (exposure time, ISO). Tapping
-         one opens the adjust bar above them; values are the same settings as on the settings
+    <!-- Exposure on the preview: two stacked buttons in the bottom-right corner, level with
+         RECORD (exposure time, ISO). Tapping one opens the adjust bar above them; values are the same settings as on the settings
          screen and apply to the preview at once. Locked while recording. -->
     <LinearLayout
         android:id="@+id/exposure_chips"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toTopOf="@+id/capture_controls_row"
+        android:layout_marginEnd="20dp"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="@+id/capture_controls_row"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintTop_toTopOf="@+id/capture_controls_row">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/exposure_chip"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="6dp"
+            android:textSize="13sp"
             android:minHeight="0dp"
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
@@ -263,7 +264,8 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/iso_chip"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
+            android:textSize="13sp"
             android:layout_height="wrap_content"
             android:minHeight="0dp"
             android:paddingTop="6dp"
@@ -274,7 +276,8 @@
             android:textColor="#FFFFFF"
             app:backgroundTint="#99000000"
             app:strokeColor="#CCFFFFFF"
-            tools:text="ISO auto 4740" />
+            tools:text="ISO auto 4740"
+            android:maxLines="1" />
     </LinearLayout>
 
     <!-- Adjust bar for the chosen value: - / value (tap to type) / + , and AUTO for ISO. -->
@@ -289,8 +292,7 @@
         android:padding="4dp"
         android:visibility="gone"
         app:layout_constraintBottom_toTopOf="@+id/exposure_chips"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <Button
             android:id="@+id/panel_minus"

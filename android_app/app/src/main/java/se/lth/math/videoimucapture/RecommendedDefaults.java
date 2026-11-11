@@ -38,10 +38,10 @@ final class RecommendedDefaults {
 
     // Exposure: SHUTTER_PRIORITY where supported -- the recordings used MANUAL 5 ms / ISO 1000,
     // which is right for one room only; shutter priority keeps the 5 ms and meters the ISO per
-    // scene, then locks it for the clip. ISO is the value MANUAL starts from.
+    // scene, then locks it for the clip. ISO is only the value MANUAL starts from.
     static final String EXPOSURE_MODE = "SHUTTER_PRIORITY";
     static final float EXPOSURE_MS = 5f;
-    static final int ISO = 1000;
+    static final int ISO = 300;
     static final boolean LOCK_RADIOMETRY = true;
     static final boolean BLUR_BUDGET = false;
     static final int BLUR_BUDGET_PX = 3;
