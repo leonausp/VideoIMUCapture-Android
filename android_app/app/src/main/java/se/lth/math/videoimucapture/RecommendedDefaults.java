@@ -4,8 +4,9 @@ package se.lth.math.videoimucapture;
  * The app's defaults in ONE place: what a fresh install (or "Reset to recommended settings")
  * starts with. They are the settings the Pixel 6 VIO test recordings of 2026-11-11 were made
  * with: main lens through the logical camera, video-only session, 1280x960, 5 ms exposure,
- * manual focus at hyperfocal, OIS off with OIS data on, no stabilisation or distortion
- * correction, exposure frozen while recording. One deliberate difference: exposure is SHUTTER
+ * manual focus, OIS off with OIS data on, no stabilisation or distortion correction, exposure
+ * frozen while recording. Two deliberate differences: focus is 0.65 diopters (~1.5 m, for
+ * indoor scenes) instead of hyperfocal (~3.25 m), and exposure is SHUTTER
  * PRIORITY (5 ms, ISO metered per scene and locked at record start) instead of the fixed ISO 1000
  * the test recordings used, which only suits that room's light.
  *
@@ -31,10 +32,14 @@ final class RecommendedDefaults {
     static final boolean OIS_DATA = true;
     static final boolean DVS = false;
 
-    // Focus: MANUAL where the lens supports it, at the hyperfocal distance
+    // Focus: MANUAL (fixed, so the focal length doesn't breathe), at 0.65 diopters = ~1.5 m.
+    // Chosen for indoor use: on the Pixel 6 main lens (f/1.85, 1280x960) defocus stays below
+    // ~2 px from ~0.75 m to infinity, and calibration targets at 0.6-0.8 m stay sharp enough.
+    // Hyperfocal (~3.25 m) is sharper beyond ~1.6 m but softer close up; the switch stays in
+    // the settings for outdoor use. Calibrate at the same focus as the recordings.
     static final String FOCUS_MODE = "MANUAL";
-    static final boolean FOCUS_HYPERFOCAL = true;
-    static final float FOCUS_DISTANCE = 0f;
+    static final boolean FOCUS_HYPERFOCAL = false;
+    static final float FOCUS_DISTANCE = 0.65f;
 
     // Exposure: SHUTTER_PRIORITY where supported -- the recordings used MANUAL 5 ms / ISO 1000,
     // which is right for one room only; shutter priority keeps the 5 ms and meters the ISO per

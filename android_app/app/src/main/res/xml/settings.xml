@@ -38,7 +38,7 @@
         <Preference
             app:key="reset_defaults"
             app:title="Reset to recommended settings"
-            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), focus at hyperfocal, OIS off with OIS data on." />
+            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), focus fixed at 1.5 m (0.65 diopters, for indoors), OIS off with OIS data on." />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -83,7 +83,7 @@
             app:key="focus_hyperfocal"
             app:title="Focus at hyperfocal (manual focus only)"
             app:persistent="true"
-            app:defaultValue="true"
+            app:defaultValue="false"
             app:summary="With focus mode MANUAL, park the lens at the hyperfocal distance instead of the distance slider — everything from about half of it to infinity is acceptably sharp, and the voice coil never moves again. Continuous AF hunts, and a lens that moves between frames breathes the focal length by a few percent across a session, which is the constant freeze_intrinsics asserts downstream. Computed from this lens: H = f²/(N·c) + f, circle of confusion = sensor diagonal / 1500. Unverified: nobody has yet plotted how much the focal actually moves on an AF-on walk, and if it turns out flat this is not needed." />
 
         <SwitchPreferenceCompat

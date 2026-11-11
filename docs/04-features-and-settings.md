@@ -74,9 +74,9 @@ The screen has a **basic section** at the top:
 - **Zoom ratio** (below 1 = wide lens);
 - **Show expert settings**, a switch that reveals all the categories below (lens, video size,
   stabilisation, focus, exposure mode, recording);
-- **Reset to recommended settings**, which puts everything back to the values the Pixel 6 VIO
-  test recordings were made with: main lens, Video only, 1280×960, shutter priority at 5 ms (manual ISO starts at 300), manual
-  focus at hyperfocal, OIS off with OIS data on, no EIS or distortion correction.
+- **Reset to recommended settings**, which puts everything back to the recommended values for
+  VIO: main lens, Video only, 1280×960, shutter priority at 5 ms (manual ISO starts at 300), manual
+  focus at 0.65 diopters (≈ 1.5 m), OIS off with OIS data on, no EIS or distortion correction.
 
 These defaults live in one place, `RecommendedDefaults.java`. A unit test checks them, and also
 checks that `settings.xml` declares the same defaults.
@@ -95,7 +95,7 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 | Zoom ratio | zoom / crop. Slider steps are round values (…, 0.9, **1.0**, 1.1, …) plus the exact minimum and maximum. **Fully left** = the widest zoom (0.67 on the Pixel 6), which gives the full ultrawide field of view with Camera Lens = ultrawide. | **1.0** for the main lens; **fully left** for the ultrawide. Never change it after calibration. |
 | Enable Distortion Correction | lets the phone undistort the image | **off**, so the SLAM system sees the raw lens model you calibrated |
 | Lenses in the session | which extra streams the session holds: "Metric pair" (default; main + ultrawide stereo streams, plus JPEG/RAW), "All rear lenses", or **"Video only"** (nothing but the video stream; stills and stereo pairs are then disabled). Takes effect when the camera reopens. | **Video only** for VIO: every extra stream is a constraint on the camera driver |
-| Focus at hyperfocal | in manual focus, set focus to the hyperfocal distance | useful with manual focus |
+| Focus at hyperfocal | in manual focus, use the hyperfocal distance (≈ 3.25 m on the Pixel 6 main lens) instead of the Focus Distance slider | **off** indoors; on for mostly distant scenes (outdoors, large halls) |
 | Raw pixels for the matcher | turns the phone's sharpening and noise reduction off | worth testing: sharpening halos can confuse feature matchers |
 
 ### Stabilization: the important part
@@ -114,7 +114,7 @@ in your data that stabilization was off.
 | Setting | VIO recommendation |
 |---|---|
 | Auto Focus Mode: Continuous / Fix on Touch / Manual | **Manual**. Focus changes the focal length measurably (on the Pixel 6, up to ~7%; see [lens breathing](#focus-changes-the-focal-length-lens-breathing)), so keep it constant during a recording and between calibration and data. With Fix on Touch, focus locks wherever you tapped; in our first test that was ~27 cm. |
-| Focus Distance | in **diopters** (1 / metres): 0 = infinity, 0.5 = 2 m, 3.65 = 27 cm. For a room, about 0.3–0.5 diopters (2–3 m). |
+| Focus Distance | in **diopters** (1 / metres): 0 = infinity, 0.5 = 2 m, 3.65 = 27 cm. **Default 0.65 (≈ 1.5 m)**, chosen for indoor use: on the Pixel 6 main lens the defocus blur stays below ~2 px from ~0.75 m to infinity (calculated, f/1.85 at 1280×960). Hyperfocal is sharper beyond ~1.6 m but softer close up. Whatever you choose, calibrate at the same focus. |
 
 ### Auto Exposure
 

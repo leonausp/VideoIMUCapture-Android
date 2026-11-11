@@ -716,9 +716,22 @@ public class CameraCaptureFragment extends Fragment
                 + (Float.isNaN(focalVideoPx) || focalVideoPx <= 0f ? "" :
                 String.format(Locale.getDefault(), focalMeasured ? "  ·  f %.0f px"
                         : "  ·  f ≈%.0f px", focalVideoPx));
-        final String sexpotime = exposureTimeNs == null ? "Exp ?" :
-                String.format(Locale.getDefault(), "Exp %.2f ms", exposureTimeNs / 1000000.0);
-        final String siso = iso == null ? "" : String.format(Locale.getDefault(), "  ·  ISO %d", iso);
+        // Shutter priority, before recording: the camera runs auto exposure as a LIGHT METER
+        // (e.g. 20 ms / ISO 644), which is not what gets recorded. Show what RECORD will lock
+        // instead (5 ms / ISO 2575, the same brightness), as the exposure buttons do.
+        Long showExpNs = exposureTimeNs;
+        Integer showIso = iso;
+        if (!mRecordingEnabled && "SHUTTER_PRIORITY".equals(exposureMode())) {
+            Camera2Proxy proxy = getmCamera2Proxy();
+            ShutterPriority.Result r = proxy != null ? proxy.shutterPriorityPreview() : null;
+            if (r != null) {
+                showExpNs = r.exposureNs;
+                showIso = r.iso;
+            }
+        }
+        final String sexpotime = showExpNs == null ? "Exp ?" :
+                String.format(Locale.getDefault(), "Exp %.2f ms", showExpNs / 1000000.0);
+        final String siso = showIso == null ? "" : String.format(Locale.getDefault(), "  ·  ISO %d", showIso);
         final String imuHz = String.format(Locale.getDefault(), "  ·  IMU %.0f Hz",
                 getmImuManager().getSensorFrequency());
         // THE CLOCK. The operator could not see how long a take had run. Refreshed with every
