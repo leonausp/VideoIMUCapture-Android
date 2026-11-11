@@ -44,14 +44,16 @@ ${B}The short version${R} (one recording does everything):
        0-30 s  calm: move the phone slowly so the grid visits every part of the image
        30-70 s brisk: rotate and move the phone along all axes (grid partly visible is fine)
 
-  ${B}3. Calibrate${R}                  $ME all <recording folder> --tag-size 0.032 --cam-until 30
-       --tag-size is the size you MEASURED, in metres. Takes 10-30 minutes.
+  ${B}3. Calibrate${R}                  $ME imucam <recording> --tag-size 0.03 --camchain factory
+       Camera-IMU (rotation, offset, time shift) with the phone's own lens values. --tag-size is
+       the size you MEASURED, in metres. Takes 5-10 minutes. (Kalibr's own lens calibration,
+       '$ME all ... --cam-until 30', is unreliable on phone recordings; see the docs.)
 
 ${B}Commands${R}
   target                     make target.pdf (paper) and target.png (screen)
-  all    <folder>            lens + camera-IMU from one recording       (recommended)
-  cam    <folder>            lens only (focal length, distortion)
-  imucam <folder>            camera-IMU only, using an existing lens calibration (--camchain)
+  imucam <folder>            camera-IMU, with --camchain factory (recommended) or a file
+  all    <folder>            Kalibr's lens calibration, then camera-IMU (check the focal!)
+  cam    <folder>            Kalibr's lens calibration only (focal length, distortion)
 
   <folder> is a phone recording (video_meta.pb3 + video; converted automatically when
   tools/pb3_export is next to this tool) or a EuRoC folder (cam0/data/*.png + imu0/data.csv).
@@ -184,6 +186,8 @@ run_step() {
             known="Kalibr found no target in the images. Check that the grid is visible and sharp in the video, and that --cols/--rows match the target (default 6 x 4)."
         elif grep -q 'Could not initialize the intrinsics' "$LOG"; then
             known="Kalibr could not estimate the focal length. The grid needs to be seen from several angles (tilt the phone), not only straight on."
+        elif grep -q 'autodetected range of \[nan' "$LOG" || grep -q 'reprojection error: \[nan' "$LOG"; then
+            known="Kalibr's lens calibration diverged (a bad first guess of the focal length; usually too few tilted views). Use the phone's lens values instead: '$ME imucam <recording> --tag-size ... --camchain factory'."
         elif grep -q 'Max. attemps reached' "$LOG"; then
             known="Kalibr gave up: too few good views. Record the calm part longer and slower, with the grid in every part of the image."
         fi
@@ -196,9 +200,20 @@ run_step() {
     fi
 }
 
+# Rolling-shutter readout (ms) from the exporter's camera.json next to the EuRoC folder, if any.
+readout_ms() {
+    local j=""
+    for j in "$(dirname "$(dirname "$IN")")/camera.json" "$(dirname "$IN")/camera.json"; do
+        [[ -f $j ]] && break
+    done
+    [[ -f $j ]] && python3 -c "import json,sys; d=json.load(open(sys.argv[1])).get('derived',{}); r=d.get('rolling_shutter_ns',0); print('%.3f'%(r/1e6) if r else '')" "$j" 2>/dev/null
+}
+
 summary() {   # summary cam|imucam <prefix>
+    local extra=/in/cam0/sensor.yaml
+    [[ $1 == imucam ]] && extra=$(readout_ms)
     echo
-    kalibr "python3 /tool/summarize.py $1 /work $2 /in/cam0/sensor.yaml" 2>/dev/null \
+    kalibr "python3 /tool/summarize.py $1 /work $2 $extra" 2>/dev/null \
         | sed -e "s/ ✓ / ${GRN}✓${R} /" -e "s/ ! / ${YEL}!${R} /" -e "s/ ✗ / ${RED}✗${R} /" \
         || warn "Could not read the results for the summary; see the report PDF."
 }
@@ -291,7 +306,7 @@ if [[ $MODE == target ]]; then
     step "2." "Tag size = W / 8.1, in metres.  Paper: $TAG_SIZE (if W matched).  Screen: e.g. 26.0 cm -> 0.0321"
     step "3." "Record ~70 s, target still, exposure 2-3 ms:"
     step "  " "         0-30 s calm (grid in every part of the image), 30-70 s brisk (all axes)."
-    step "4." "Calibrate:  $ME all <recording> --tag-size <tag size> --cam-until 30"
+    step "4." "Calibrate:  $ME imucam <recording> --tag-size <tag size> --camchain factory"
     echo
     exit 0
 fi

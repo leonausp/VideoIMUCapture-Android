@@ -123,8 +123,8 @@ final class FrameRecords {
                                                  String requestedCamera,
                                                  String metadataCameraId,
                                                  String logicalCameraId,
-                                                 CameraCharacteristics distortionFallback,
-                                                 String distortionFallbackId) {
+                                                 CameraCharacteristics activeLens,
+                                                 String activeLensId) {
 
         RecordingProtos.CameraInfo.Builder metaBuilder = RecordingProtos.CameraInfo.newBuilder()
                 .setOpticalImageStabilization(mCameraSettingsManager.OISEnabled())
@@ -192,11 +192,22 @@ final class FrameRecords {
         if (Build.VERSION.SDK_INT >= 28) {
             float[] distortion = mCameraCharacteristics.get(CameraCharacteristics.LENS_DISTORTION);
             String distortionFrom = metadataCameraId;
-            // A logical multi-camera may report no distortion (Pixel 6: zeros) although its
-            // physical lens has factory values. Take them from that lens (same intrinsics).
-            if (!hasDistortion(distortion) && distortionFallback != null) {
-                distortion = distortionFallback.get(CameraCharacteristics.LENS_DISTORTION);
-                distortionFrom = distortionFallbackId;
+            // Through a logical camera the ACTIVE physical lens's distortion is the one in the
+            // pixels (the Pixel 6's logical camera reports zeros, and may record through the
+            // ultrawide). Take it whenever that lens reports one.
+            if (activeLens != null) {
+                float[] d = activeLens.get(CameraCharacteristics.LENS_DISTORTION);
+                if (hasDistortion(d)) {
+                    distortion = d;
+                    distortionFrom = activeLensId;
+                }
+                metaBuilder.setActiveCameraId(activeLensId == null ? "" : activeLensId);
+                Rect arr = activeLens.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
+                if (arr != null) {
+                    metaBuilder.setActivePreCorrectionActiveArraySize(
+                            RecordingProtos.CameraInfo.Size.newBuilder()
+                                    .setWidth(arr.width()).setHeight(arr.height()));
+                }
             }
             if (hasDistortion(distortion)) {
                 for (float e : distortion) {

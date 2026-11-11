@@ -72,11 +72,17 @@ message CameraInfo {
   string metadata_camera_id = 16;        // camera whose characteristics filled this message
   string logical_camera_id = 17;         // the logical camera that was opened
   repeated float lens_focal_lengths = 18; // LENS_INFO_AVAILABLE_FOCAL_LENGTHS of metadata_camera_id
-  // Camera whose LENS_DISTORTION filled distortion_params. Usually metadata_camera_id; differs
-  // when that is a logical camera reporting no distortion (Pixel 6: camera 0 reports zeros),
-  // and the physical lens with the same factory intrinsics (the lens actually recording,
-  // camera 2) supplied it. Empty when no distortion was recorded.
+  // Camera whose LENS_DISTORTION filled distortion_params. Through a logical camera this is the
+  // physical lens that was ACTIVE at record start (LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID): the
+  // Pixel 6's logical camera reports no distortion, and at zoom < 1 it records through the
+  // ultrawide, whose distortion differs from the main lens's. Empty when none was recorded.
   string distortion_camera_id = 19;
+  // Through a logical camera: the physical lens active at record start and its
+  // pre-correction active array. intrinsic_params above stay the logical camera's (= main lens
+  // on the Pixel 6), so for another active lens use the per-frame lens_intrinsic_calibration
+  // (that lens's own sensor pixels) with this array size. Empty / unset when not known.
+  string active_camera_id = 20;
+  Size active_pre_correction_active_array_size = 21;
 }
 
 message VideoFrameToTimestamp{

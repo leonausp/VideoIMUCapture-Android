@@ -63,8 +63,11 @@ def cam(folder, prefix, sensor_yaml=None):
     if start:
         dev = abs(fu / start[0] - 1) * 100
         line("Focal vs. start value", "%+.1f %%" % ((fu / start[0] - 1) * 100), rate(dev, 2, 5),
-             "start value %.1f px (factory); far off = the calibration went wrong, "
-             "usually too few tilted views" % start[0])
+             "start value %.1f px (the phone's)" % start[0])
+        if dev >= 5:
+            print("      -> Kalibr's lens calibration went wrong (usually too few tilted views; its own")
+            print("         error can still look small). Use the phone's lens values instead:")
+            print("         calibrate.sh imucam <recording> --tag-size ... --camchain factory")
     off = math.hypot(pu - w / 2, pv - h / 2) / math.hypot(w, h) * 100
     line("Image centre cx / cy", "%.1f / %.1f px" % (pu, pv), rate(off, 3, 6),
          "%.1f %% of the diagonal from the middle" % off)
@@ -77,14 +80,22 @@ def cam(folder, prefix, sensor_yaml=None):
         line("Reprojection error", "%.2f px" % e, rate(e, 0.5, 1.0), "below 0.5 px is good")
 
 
-def imucam(folder, prefix):
+def imucam(folder, prefix, readout_ms=None):
     chain = yaml.safe_load(open(os.path.join(folder, prefix + "-camchain-imucam.yaml")))["cam0"]
     T = np.array(chain["T_cam_imu"])
     R, t = T[:3, :3], T[:3, 3]
     shift_ms = chain.get("timeshift_cam_imu", 0.0) * 1000
     print("Camera-IMU calibration")
-    line("Time offset camera->IMU", "%+.2f ms" % shift_ms, rate(abs(shift_ms), 10, 30),
-         "t_imu = t_cam + offset; repeat recordings should agree to ~1 ms")
+    if readout_ms:
+        # Rolling shutter: the timestamps are the TOP row's mid-exposure; the image's middle is
+        # read half a readout later, so the offset sits near readout/2 (Pixel 6: +1-2 ms more).
+        exp = readout_ms / 2
+        line("Time offset camera->IMU", "%+.2f ms" % shift_ms, rate(abs(shift_ms - exp), 3, 6),
+             "expected ~%.1f ms + 1-2 ms (half the %.1f ms readout); repeats should agree to ~1 ms"
+             % (exp, readout_ms))
+    else:
+        line("Time offset camera->IMU", "%+.2f ms" % shift_ms, "",
+             "t_imu = t_cam + offset; repeat recordings should agree to ~1 ms")
     # A phone's camera is mounted along the body axes: R should be a 90-degree axis swap.
     nearest = np.round(R)
     cos = (np.trace(nearest.T @ R) - 1) / 2
@@ -108,10 +119,11 @@ def imucam(folder, prefix):
 
 def main():
     mode, folder, prefix = sys.argv[1:4]
+    extra = sys.argv[4] if len(sys.argv) > 4 else None
     if mode == "cam":
-        cam(folder, prefix, sys.argv[4] if len(sys.argv) > 4 else None)
+        cam(folder, prefix, extra)
     else:
-        imucam(folder, prefix)
+        imucam(folder, prefix, float(extra) if extra else None)
 
 
 if __name__ == "__main__":

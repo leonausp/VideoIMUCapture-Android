@@ -3,7 +3,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pb3_export import distort, fit_radial_k1k2, rotate_point, rotate_tangential  # noqa: E402
+from pb3_export import distort, fit_radial_k1k2, rotate_point, rotate_tangential, sensor_to_video  # noqa: E402
 
 # Pixel 6 ultrawide factory distortion [k1, k2, k3, p1, p2], plus exaggerated tangential terms
 # so a wrong sign could not hide in rounding.
@@ -50,6 +50,22 @@ def test_k3_refit_matches_the_factory_curve_on_the_pixel6_main_lens():
     # No k3: the fit returns the same k1, k2.
     g1, g2, e2 = fit_radial_k1k2(0.1, -0.05, 0.0, r_max)
     assert abs(g1 - 0.1) < 1e-9 and abs(g2 + 0.05) < 1e-9 and e2 < 1e-12
+
+
+def test_sensor_to_video_reproduces_the_apps_pixel6_values():
+    # Main lens, factory LENS_INTRINSIC_CALIBRATION, 4080x3072 array, 960x1280 portrait video.
+    cx, cy, s = sensor_to_video(2031.5876, 1547.8085, 4080, 3072, 960, 1280, 90)
+    assert abs(2794.3948 * s - 876.6729) < 0.01, 2794.3948 * s     # app: fx 876.67
+    assert abs(cy - 637.3608) < 0.01, cy                             # app: cy 637.36
+    # cx: the app ignores the 6-row crop of the 4080x3072 array to 4:3 (473.41); this uses it.
+    assert abs(cx - 473.4130) < 2.0, cx
+    # Ultrawide, 4032x3016 array (Pixel 6 camera 3): fx ~600 px, as the app's estimate (601).
+    cx, cy, s = sensor_to_video(2004.0356, 1508.5385, 4032, 3016, 960, 1280, 90)
+    assert abs(1886.4777 * s - 600.5) < 1.0, 1886.4777 * s
+    # The principal point of a centred sensor lands in the middle of the video, any rotation.
+    for o, (w, h) in [(0, (1280, 960)), (90, (960, 1280)), (180, (1280, 960)), (270, (960, 1280))]:
+        cx, cy, _ = sensor_to_video(2039.5, 1529.5, 4080, 3060, w, h, o)
+        assert abs(cx - (w - 1) / 2) < 0.6 and abs(cy - (h - 1) / 2) < 0.6, (o, cx, cy)
 
 
 if __name__ == "__main__":

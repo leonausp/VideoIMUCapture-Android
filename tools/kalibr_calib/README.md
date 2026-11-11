@@ -29,28 +29,31 @@ tools/kalibr_calib/calibrate.sh --help           # the guide
 The script lists the connected screens (built-in/external, resolution, size from the EDID), makes
 the PNG for the built-in one, and prints the `--screen WxH` command for each other screen.
 
-**2. Record** ~70 s, target still, exposure 2-3 ms: 0-30 s calm (grid in every part of the
-image), 30-70 s brisk (rotate and move along all axes; the grid may be partly out of view).
+**2. Record** ~60-70 s, target still, exposure 2-3 ms: start calmly, then rotate and move the
+phone briskly along all axes (the grid may be partly out of view). Each code cell of the grid
+needs ~4 px in the image (A4 with the main lens: 0.6-0.8 m).
 
-**3. Calibrate** (10-30 min):
+**3. Calibrate** (5-10 min):
 
 ```bash
-tools/kalibr_calib/calibrate.sh all <recording> --tag-size 0.0321 --cam-until 30
+tools/kalibr_calib/calibrate.sh imucam <recording> --tag-size 0.03 --camchain factory
 ```
 
-`<recording>` is a EuRoC folder (`cam0/data/<t_ns>.png` + `imu0/data.csv`) or, when
-`tools/pb3_export` sits next to this folder, a phone recording (`video_meta.pb3` + video), which
-is converted automatically with mid-exposure timestamps. The lens is calibrated from the first
-30 s, then camera-IMU with it. Kalibr's output goes to `kalibr.log`; the terminal shows the steps,
-a rated summary (reprojection error, focal length, time offset, rotation vs. the phone's axes,
-camera-IMU distance) and the result files:
+`<recording>` is a EuRoC folder (`cam0/data/<t_ns>.png` + `imu0/data.csv`, and for
+`--camchain factory` the start values in `cam0/sensor.yaml`) or, when `tools/pb3_export` sits next
+to this folder, a phone recording (`video_meta.pb3` + video), converted automatically with
+mid-exposure timestamps. `--camchain factory` uses those start values as the lens model: on phone
+recordings they are the phone's own per-frame focal length and factory distortion, which proved
+more reliable than Kalibr's lens calibration (see docs/07). Kalibr's output goes to `kalibr.log`;
+the terminal shows the steps, a rated summary (time offset vs. half the rolling-shutter readout,
+rotation vs. the phone's axes, camera-IMU distance, reprojection error) and the result files:
 
-- `all-camchain.yaml`: lens calibration
-- `all-camchain-imucam.yaml`: lens + camera-IMU, what SLAM needs
-- `all-report-cam.pdf`, `all-report-imucam.pdf`: Kalibr's plots
+- `imucam-camchain-imucam.yaml`: lens + camera-IMU, what SLAM needs
+- `imucam-report-imucam.pdf`: Kalibr's plots
 
-Separate steps: `cam <recording>` (lens only) and `imucam <recording> --camchain FILE` (camera-IMU
-with an existing lens calibration, from Kalibr or another tool). Other options: `--target FILE`
+Kalibr's lens calibration: `all <recording> --cam-until 30` (lens from the calm first 30 s, then
+camera-IMU) or `cam <recording>` (lens only); the summary compares its focal length with the start
+value and says when it went wrong. `imucam --camchain FILE` uses any Kalibr camchain. Other options: `--target FILE`
 (any Kalibr target, e.g. a checkerboard), `--imu-yaml FILE` (IMU noise from an Allan-variance
 run; otherwise marked placeholder values), `--cols/--rows`, `--out DIR`, `--cam-freq/--imu-freq`.
 Mistakes such as a tag size in centimetres, a missing image or a wrong folder are reported with
