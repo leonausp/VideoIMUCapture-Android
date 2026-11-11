@@ -44,6 +44,26 @@ current mode instead (`walk_vid_<date>` etc.).
 | **OBJECT** | One press = focus stack + exposure bracket + RAW, for a stationary subject | same |
 | **PANO** | Tripod/gimbal: stillness-triggered with an exposure bracket per position | same |
 
+## Exposure on the main screen
+
+Two buttons above RECORD show the **exposure time** and the **ISO**.
+- **Adjusting:** tap one to open a bar with **−**, the **value** and **+** (⅓-stop steps). Tap
+  the value to type an exact number. For ISO there's also **AUTO**. Changes apply to the preview
+  immediately, and they're the same settings as on the settings screen.
+- **Locked while recording,** so the exposure can't change mid-clip.
+
+The **default mode is shutter priority**:
+- **Fixed exposure time:** 5 ms, chosen for little motion blur.
+- **ISO is metered per scene:** the preview runs auto exposure purely as a light meter, and the
+  ISO button shows the ISO that gives the same brightness at your exposure time ("ISO auto
+  4740"). At **record start** that ISO and the exposure are **locked** for the whole clip.
+- **Bright scenes:** if even the minimum ISO would over-expose, the exposure is **shortened**
+  instead, which means even less blur. The button then shows "(bright)".
+- **Dark scenes:** if even the maximum ISO isn't enough, the ISO button shows how many stops the
+  frames will be too dark ("▼1.5"). Add light, or accept a longer exposure.
+- **Fixed ISO:** pressing **+** or **−** on ISO switches to fully manual; **AUTO** switches back
+  to shutter priority.
+
 ## Settings (gear icon)
 
 The screen has a **basic section** at the top:

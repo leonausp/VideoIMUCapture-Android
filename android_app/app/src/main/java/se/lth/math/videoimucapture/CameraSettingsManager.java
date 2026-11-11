@@ -211,20 +211,27 @@ public class CameraSettingsManager {
         return e != null && e.getMode() == CameraSettingExposureMode.Mode.MANUAL;
     }
 
+    // Null-safe: the exposure setting exists only once the camera has been configured.
     public long getTargetExposureNs() {
-        return exposureSetting().targetExposureNs();
+        CameraSettingExposureMode e = exposureSetting();
+        return e == null ? (long) (RecommendedDefaults.EXPOSURE_MS * 1e6) : e.targetExposureNs();
     }
 
     public int getManualIso() {
-        return exposureSetting().manualIso();
+        CameraSettingExposureMode e = exposureSetting();
+        return e == null ? RecommendedDefaults.ISO : e.manualIso();
     }
 
+    /** Exposure range in ms, or null before the camera is configured / without manual exposure. */
     public Range<Float> getExposureRangeMs() {
-        return exposureSetting().exposureRangeMs();
+        CameraSettingExposureMode e = exposureSetting();
+        return e == null ? null : e.exposureRangeMs();
     }
 
+    /** ISO range, or null before the camera is configured / without manual exposure. */
     public Range<Integer> getIsoRange() {
-        return exposureSetting().isoRange();
+        CameraSettingExposureMode e = exposureSetting();
+        return e == null ? null : e.isoRange();
     }
 
     public Size getVideoSize() {

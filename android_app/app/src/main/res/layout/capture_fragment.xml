@@ -157,7 +157,7 @@
         android:layout_marginBottom="4dp"
         android:text=""
         android:textAppearance="@style/TextAppearance.MyApp.Overlay"
-        app:layout_constraintBottom_toTopOf="@+id/captureMode_strip"
+        app:layout_constraintBottom_toTopOf="@+id/exposure_panel"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -228,6 +228,107 @@
                 android:text="@string/capture_label_video"
                 android:textAppearance="@style/TextAppearance.MyApp.Overlay" />
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- Exposure on the preview: two buttons above the record row (exposure time, ISO). Tapping
+         one opens the adjust bar above them; values are the same settings as on the settings
+         screen and apply to the preview at once. Locked while recording. -->
+    <LinearLayout
+        android:id="@+id/exposure_chips"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@+id/capture_controls_row"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/exposure_chip"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:minHeight="0dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            app:backgroundTint="#99000000"
+            app:strokeColor="#CCFFFFFF"
+            tools:text="5.0 ms" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/iso_chip"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="0dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            app:backgroundTint="#99000000"
+            app:strokeColor="#CCFFFFFF"
+            tools:text="ISO auto 4740" />
+    </LinearLayout>
+
+    <!-- Adjust bar for the chosen value: - / value (tap to type) / + , and AUTO for ISO. -->
+    <LinearLayout
+        android:id="@+id/exposure_panel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:background="#CC000000"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/exposure_chips"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <Button
+            android:id="@+id/panel_minus"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="56dp"
+            android:layout_height="wrap_content"
+            android:text="@string/exposure_minus"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/panel_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="96dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            tools:text="5.0 ms" />
+
+        <Button
+            android:id="@+id/panel_plus"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="56dp"
+            android:layout_height="wrap_content"
+            android:text="@string/exposure_plus"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp" />
+
+        <Button
+            android:id="@+id/panel_auto"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/exposure_auto"
+            android:textColor="#FFFFFF" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
