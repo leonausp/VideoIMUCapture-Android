@@ -224,6 +224,16 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
                 mVideoStartHoldMs = Math.max(mVideoStartHoldMs, SHUTTER_PRIORITY_SETTLE_MS);
             }
         }
+        // Autofocus: hold the lens where it is for the whole clip (the focal length moves with
+        // focus). Manual focus is fixed anyway.
+        mFocusLocked = false;
+        if (proxy != null && mActivity.getmCameraSettingsManager() != null
+                && mActivity.getmCameraSettingsManager().isAutoFocus()) {
+            mFocusLocked = proxy.lockFocus() != null;
+            if (mFocusLocked) {
+                mVideoStartHoldMs = Math.max(mVideoStartHoldMs, FOCUS_LOCK_SETTLE_MS);
+            }
+        }
         if (proxy != null && mVideoLockedRadiometry) {
             proxy.lockAutoAlgorithms(true);
         }
@@ -248,6 +258,9 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
     // the pair warm-up above, the pipeline needs a few frames before the pixels follow.
     private static final long SHUTTER_PRIORITY_SETTLE_MS = 300L;
     private boolean mShutterPriorityLocked = false;
+    // The focus lock is a request swap too (autofocus off, lens held where it is).
+    private static final long FOCUS_LOCK_SETTLE_MS = 300L;
+    private boolean mFocusLocked = false;
 
     /**
      * How long the recording's FIRST FRAME should wait after {@link #beginVideoSession}: zero,
@@ -278,6 +291,10 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
             proxy.releaseShutterPriority();
         }
         mShutterPriorityLocked = false;
+        if (proxy != null && mFocusLocked) {
+            proxy.releaseFocus();
+        }
+        mFocusLocked = false;
         if (proxy != null && mVideoLockedRadiometry) {
             proxy.lockAutoAlgorithms(false);
         }

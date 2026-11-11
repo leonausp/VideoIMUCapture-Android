@@ -38,7 +38,7 @@
         <Preference
             app:key="reset_defaults"
             app:title="Reset to recommended settings"
-            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), focus fixed at about 1.5 m (1.1 on the focus scale of the phone, for indoors), OIS off with OIS data on." />
+            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), autofocus locked when recording, OIS off with OIS data on." />
     </PreferenceCategory>
 
     <PreferenceCategory

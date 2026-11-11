@@ -668,6 +668,66 @@ public class Camera2Proxy {
         return r;
     }
 
+    // --- Focus locked for a recording (autofocus modes) ---
+
+    private volatile boolean mFocusLocked = false;
+
+    /**
+     * Record start with autofocus: hold the lens where autofocus has put it (the last result's
+     * LENS_FOCUS_DISTANCE), autofocus off, so the focal length -- which moves ~1.4 % per
+     * diopter on the Pixel 6 main lens -- stays constant through the clip. The per-frame
+     * LENS_INTRINSIC_CALIBRATION then records the focal for this focus. Returns the distance
+     * (diopters, the phone's scale), or null if there was none (focus then stays automatic).
+     */
+    public Float lockFocus() {
+        if (mCaptureSession == null || mPreviewRequestBuilder == null) {
+            return null;
+        }
+        TotalCaptureResult r = mLastResult;
+        Float d = r != null ? r.get(CaptureResult.LENS_FOCUS_DISTANCE) : null;
+        if (d == null) {
+            Log.w(TAG, "focus lock: no focus distance in the last result; autofocus stays on");
+            return null;
+        }
+        try {
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                    CameraMetadata.CONTROL_AF_TRIGGER_IDLE);
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                    CameraMetadata.CONTROL_AF_MODE_OFF);
+            mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, d);
+            reissuePreview();
+            mFocusLocked = true;
+            Log.i(TAG, String.format(Locale.US, "focus locked at %.3f diopters (phone scale)", d));
+            return d;
+        } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+            Log.w(TAG, "Could not lock focus: " + e);
+            return null;
+        }
+    }
+
+    /** Record end: autofocus again, as the setting says. */
+    public void releaseFocus() {
+        if (!mFocusLocked) {
+            return;
+        }
+        mFocusLocked = false;
+        if (mCaptureSession == null || mPreviewRequestBuilder == null) {
+            return;
+        }
+        try {
+            mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, null);
+            mCameraSettingsManager.restoreFocus(mPreviewRequestBuilder);
+            reissuePreview();
+            Log.i(TAG, "focus released: autofocus");
+        } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+            Log.w(TAG, "Could not release focus: " + e);
+        }
+    }
+
+    public boolean isFocusLocked() {
+        return mFocusLocked;
+    }
+
     /** Record end: back to auto exposure as the light meter. */
     public void releaseShutterPriority() {
         if (mShutterPriorityLocked) {

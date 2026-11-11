@@ -10,9 +10,9 @@
         <item>none</item>
     </string-array>
     <string-array name="focus_mode_desc">
-        <item>Continuous</item>
-        <item>Fix on Touch</item>
-        <item>Manual</item>
+        <item>Auto, locked when recording</item>
+        <item>Tap to focus, locked when recording</item>
+        <item>Manual (fixed distance)</item>
     </string-array>
     <string-array name="exposure_mode_desc" >
         <item>Continuous</item>

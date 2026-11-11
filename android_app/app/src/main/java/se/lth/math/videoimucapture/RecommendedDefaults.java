@@ -5,8 +5,8 @@ package se.lth.math.videoimucapture;
  * starts with. They are the settings the Pixel 6 VIO test recordings of 2026-11-11 were made
  * with: main lens through the logical camera, video-only session, 1280x960, 5 ms exposure,
  * manual focus, OIS off with OIS data on, no stabilisation or distortion correction, exposure
- * frozen while recording. Two deliberate differences: focus is 1.1 on the phone's scale (~1.5 m
- * real, for indoor scenes) instead of the computed hyperfocal, and exposure is SHUTTER
+ * frozen while recording. Two deliberate differences: focus is AUTOMATIC and locked at record start
+ * instead of a fixed hyperfocal, and exposure is SHUTTER
  * PRIORITY (5 ms, ISO metered per scene and locked at record start) instead of the fixed ISO 1000
  * the test recordings used, which only suits that room's light.
  *
@@ -32,14 +32,14 @@ final class RecommendedDefaults {
     static final boolean OIS_DATA = true;
     static final boolean DVS = false;
 
-    // Focus: MANUAL (fixed, so the focal length doesn't breathe), at 1.1 on the phone's focus
-    // scale = ~1.5 m. The Pixel 6 main lens's scale is APPROXIMATE and offset: tap-to-focus on a
-    // target at distances measured from the target's own size (0.59-2.05 m, 2026-11-11) gave
-    //     phone value = 0.40 + 1.08 x real diopters,
-    // so its "infinity" is 0.40, 0.65 was really ~4 m and the computed hyperfocal (0.31) beyond
-    // infinity. 1.1 = real ~0.65 dpt: sharp enough (calculated, <~2 px) from ~0.8 m outwards,
-    // which suits indoor scenes and calibration targets at 0.6-0.8 m. Calibrate at the same focus.
-    static final String FOCUS_MODE = "MANUAL";
+    // Focus: CONTINUOUS_AUTO in the preview, LOCKED at record start (CaptureModeManager): the
+    // focal length moves with focus (~1.4 %/dpt on the Pixel 6 main lens), so it must not change
+    // within a clip, but it may differ between clips -- the export takes the per-frame focal
+    // (LENS_INTRINSIC_CALIBRATION, which follows the focus), and the camera-IMU calibration does
+    // not depend on focus. A fixed number would not carry across phones: the Pixel 6's focus
+    // scale is offset (phone value = 0.40 + 1.08 x real diopters, measured 2026-11-11).
+    // FOCUS_DISTANCE is MANUAL's value: 1.1 on that scale = ~1.5 m real.
+    static final String FOCUS_MODE = "CONTINUOUS_AUTO";
     static final boolean FOCUS_HYPERFOCAL = false;
     static final float FOCUS_DISTANCE = 1.1f;
 

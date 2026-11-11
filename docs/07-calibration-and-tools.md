@@ -11,8 +11,10 @@ VIO needs to know four things about the phone:
 
 [`tools/kalibr_calib/`](../tools/kalibr_calib/README.md) runs the official
 [Kalibr](https://github.com/ethz-asl/kalibr) in Docker. **You calibrate once per phone, lens and
-settings**, not per recording; with the recommended settings (1280×960, fixed focus, no OIS/EIS)
-every later recording reuses the result.
+settings**, not per recording; with the recommended settings (1280×960, no OIS/EIS) every later
+recording reuses the result. Focus may differ between the calibration and later clips (autofocus
+locked at RECORD): the camera–IMU result does not depend on it, and each clip's own focal length
+comes from the phone.
 
 **Why the intrinsics come from the phone.** Kalibr can also calibrate the lens, but on our Pixel 6
 recordings it failed or gave a wrong focal length in 5 of 7 attempts (e.g. 447 px instead of ~600
