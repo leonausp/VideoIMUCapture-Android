@@ -896,15 +896,13 @@ public class CameraCaptureFragment extends Fragment
                 return;
             }
             float now = prefs().getFloat("exposure", RecommendedDefaults.EXPOSURE_MS);
-            float next = s.valueAt(Math.max(0, Math.min(s.count() - 1, s.indexOf(now) + dir)));
-            setExposureMs(next);
+            setExposureMs(s.stepFrom(now, dir));
         } else if ("iso".equals(mPanelParam)) {
             SliderSteps s = isoSteps();
             if (s == null) {
                 return;
             }
-            float next = s.valueAt(Math.max(0, Math.min(s.count() - 1, s.indexOf(currentIso()) + dir)));
-            setManualIso(Math.round(next));
+            setManualIso(Math.round(s.stepFrom(currentIso(), dir)));
         }
     }
 
