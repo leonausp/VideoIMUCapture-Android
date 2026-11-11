@@ -18,8 +18,9 @@ so any source works (`tools/pb3_export`, or another project's importer).
 tools/kalibr_calib/build.sh        # once, ~15-30 min: image zf-kalibr:<commit> (8 GB)
 
 # 1. Target (or skip, and pass an existing Kalibr target yaml with --target FILE)
-tools/kalibr_calib/calibrate.sh target [--screen 1920x1080]   # -> kalibr_target/target.png + .pdf
-#    show target.png full screen (F11 / slideshow, no toolbar) or print the PDF. MEASURE from the
+tools/kalibr_calib/calibrate.sh target [--screen 1920x1080]   # -> kalibr_target/target.png
+#    show target.png full screen (F11 / slideshow, no toolbar). For paper add --pdf and print
+#    target.pdf at ACTUAL SIZE (its caption, 3 cm tags, holds only on paper). MEASURE from the
 #    outermost black edge to the outermost black edge (the small corner squares):
 #    6 columns: tag size = width / 8.1 (check: 4 rows, height / 5.5). That is --tag-size [m].
 

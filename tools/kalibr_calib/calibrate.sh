@@ -3,9 +3,9 @@
 # (columns: t_ns, gx gy gz [rad/s], ax ay az [m/s^2]; first line is a header).
 # Self-contained: needs only Docker and the image from build.sh (same folder).
 #
-#   calibrate.sh target [--cols 6 --rows 4] [--screen 1920x1080] [--out DIR]
-#       AprilGrid as target.png (for showing full screen: F11 / slideshow) and target.pdf (for
-#       printing). Then MEASURE from outermost black edge to outermost black edge (the small corner
+#   calibrate.sh target [--cols 6 --rows 4] [--screen 1920x1080] [--pdf [--tag-size M]] [--out DIR]
+#       AprilGrid as target.png, for showing full screen (F11 / slideshow). --pdf also writes
+#       target.pdf for PRINTING at actual size (tags --tag-size, default 3 cm). Then MEASURE from outermost black edge to outermost black edge (the small corner
 #       squares) and divide as printed (6 columns: width / 8.1): that is --tag-size in metres.
 #   calibrate.sh all    <euroc_dir> --tag-size M [--cam-until S]       <- ONE recording, both steps
 #       intrinsics, then camera-IMU with them      -> DIR/all-camchain.yaml, all-camchain-imucam.yaml
@@ -42,13 +42,14 @@ if [[ $MODE != target ]]; then
         || { echo "$IN: expected cam0/data/*.png and imu0/data.csv" >&2; exit 1; }
 fi
 
-SCREEN=1920x1080 TAG_SIZE="" COLS=6 ROWS=4 CAM_FREQ="" IMU_FREQ="" CAM_UNTIL="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
+PDF=0 SCREEN=1920x1080 TAG_SIZE="" COLS=6 ROWS=4 CAM_FREQ="" IMU_FREQ="" CAM_UNTIL="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --tag-size) TAG_SIZE=$2; shift 2 ;;
         --cols)     COLS=$2; shift 2 ;;
         --rows)     ROWS=$2; shift 2 ;;
         --screen)   SCREEN=$2; shift 2 ;;
+        --pdf)      PDF=1; shift ;;
         --cam-freq) CAM_FREQ=$2; shift 2 ;;
         --imu-freq) IMU_FREQ=$2; shift 2 ;;
         --cam-until) CAM_UNTIL=$2; shift 2 ;;
@@ -94,9 +95,12 @@ EOT
 fi
 
 if [[ $MODE == target ]]; then
-    kalibr "rosrun kalibr kalibr_create_target_pdf --type apriltag --nx $COLS --ny $ROWS --tsize $TAG_SIZE --tspace 0.3 target \
-        && python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png --check"
-    echo "also wrote $OUT/target.pdf (for printing). Pass the MEASURED tag size as --tag-size."
+    kalibr "python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png --check"
+    echo "Show $OUT/target.png full screen (F11), measure, and pass the MEASURED tag size as --tag-size."
+    if [[ $PDF == 1 ]]; then
+        kalibr "rosrun kalibr kalibr_create_target_pdf --type apriltag --nx $COLS --ny $ROWS --tsize $TAG_SIZE --tspace 0.3 target"
+        echo "For printing: $OUT/target.pdf, print at ACTUAL SIZE (not fit to page): tags $TAG_SIZE m. Measure anyway."
+    fi
     exit 0
 fi
 
