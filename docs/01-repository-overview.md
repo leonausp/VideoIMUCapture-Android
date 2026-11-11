@@ -7,19 +7,20 @@ VideoIMUCapture-Android/
 ├── android_app/          ← THE ANDROID APP (the only part that runs on the phone)
 ├── docker/               ← Docker environment for BUILDING the app (JDK + Android SDK)
 ├── protobuf/             ← recording.proto: the schema of the recorded metadata file
-├── calibration/          ← Python scripts + a SECOND Docker image (Kalibr) for calibration/conversion
-├── analysis/             ← Python scripts from the previous fork for checking recordings
 ├── tools/pb3_export/     ← converter: recordings → CSV, camera.json and EuRoC (Docker)
-├── libs/dockers/         ← git submodule with generic Docker helper scripts (used by calibration/)
+├── tools/kalibr_calib/   ← calibration: camera + camera–IMU with Kalibr (Docker)
+├── analysis/             ← Python scripts from the previous fork for checking recordings
+├── calibration/          ← the ORIGINAL project's calibration scripts (old, not used)
+├── libs/dockers/         ← git submodule with Docker helper scripts (used only by calibration/)
 ├── docs/                 ← this documentation
 ├── images/, graphics/    ← screenshots and icons used in the README
 ├── .github/              ← GitHub issue templates
-├── README.md             ← the previous fork's README (feature list, lineage)
+├── README.md             ← what this project is, quick start, thanks
 └── LICENSE               ← GPL-3.0
 ```
 
 Only `android_app/` becomes the app. Everything else is tooling that runs on your computer:
-building, calibrating, converting and checking recordings.
+building, converting, calibrating and checking recordings.
 
 ## `android_app/`: the Android project
 
@@ -85,33 +86,32 @@ from this file. To read recordings, you generate Python classes from the same fi
 - `compile.sh`: one-line `protoc` call that generates Python code.
 - `test_proto/`: tiny examples (`proto2yaml.py` dumps a recording as YAML).
 
-## `calibration/`: Kalibr and conversion (a second Docker image)
+## `tools/`: converting and calibrating recordings
 
-These scripts come from the original VideoIMUCapture project. They turn a recording into what
-calibration and SLAM tools expect:
+Two self-contained folders, each with its own README and Docker setup, so they can be copied into
+other projects:
 
-| Script | Does |
-|---|---|
-| `data2statistics.py` | Summary of a recording (rates, factory intrinsics if the phone provides them) |
-| `data2kalibr.py` | Builds a Kalibr bag plus `target.yaml`/`imu.yaml`/`camchain.yaml` for camera or camera–IMU calibration |
-| `data2rosbag.py` | Converts recordings to ROS bags, rescaling a calibration to the video resolution |
-| `data2images.py` | Extracts frames as images |
-| `data2lth_vision.py` | Converter for the Lund (LTH) vision system |
-| `find_T.py`, `utils.py`, `intrinsic2txt.m` | Helpers (transforms; MATLAB calibration export) |
-
-They run inside a **separate Docker image built on Kalibr** (`calibration/Dockerfile`). The
-original author also published it on Docker Hub as `davidgillsjo/videoimucapture-calibration`.
-**There are two unrelated Docker setups:**
-
-| | `docker/` | `calibration/` |
+| Folder | Does | Docker image |
 |---|---|---|
-| Purpose | build the Android app | calibrate and convert recordings |
-| Base image | eclipse-temurin JDK 17 + Android SDK | stereolabs/kalibr (ROS + Kalibr) |
-| Written by | us | the original VideoIMUCapture author |
-| Entry point | `docker/build.sh` | `calibration/run_dockerhub.sh` / `run_docker.sh` |
+| `tools/pb3_export/` | recording → `frames.csv`, `imu.csv`, `camera.json`, EuRoC folder for SLAM | small Python image, built on first use |
+| `tools/kalibr_calib/` | AprilGrid target (PDF/PNG); camera intrinsics and camera–IMU extrinsics + time offset from one recording | official Kalibr (ROS Noetic), pinned commit, built once with `build.sh` |
 
-The calibration scripts use the `libs/dockers` submodule, which you fetch with
-`git submodule update --init`. See [07 – Calibration & analysis tools](07-calibration-and-tools.md).
+**There are three unrelated Docker setups:**
+
+| | `docker/` | `tools/pb3_export/` | `tools/kalibr_calib/` |
+|---|---|---|---|
+| Purpose | build the Android app | convert recordings | calibrate |
+| Base image | eclipse-temurin JDK 17 + Android SDK | python:3.12-slim | osrf/ros:noetic + Kalibr |
+| Entry point | `docker/build.sh` | `export.sh` | `calibrate.sh` |
+
+Details: [07 – Calibration & analysis tools](07-calibration-and-tools.md).
+
+## `calibration/`: the original project's scripts (not used)
+
+`data2kalibr.py`, `data2rosbag.py`, `data2statistics.py` and others come from the original
+VideoIMUCapture project. They need its old Docker image (Ubuntu 16.04, ROS Kinetic, Python 2,
+`davidgillsjo/videoimucapture-calibration`) with an outdated copy of the recording schema, plus the
+`libs/dockers` submodule. They're kept for reference; `tools/kalibr_calib` replaces them.
 
 ## `analysis/`: checks from the previous fork
 
