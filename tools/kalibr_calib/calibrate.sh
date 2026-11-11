@@ -3,8 +3,9 @@
 # (columns: t_ns, gx gy gz [rad/s], ax ay az [m/s^2]; first line is a header).
 # Self-contained: needs only Docker and the image from build.sh (same folder).
 #
-#   calibrate.sh target [--cols 6 --rows 4] [--screen 1920x1080] [--pdf [--tag-size M]] [--out DIR]
-#       AprilGrid as target.png, for showing full screen (F11 / slideshow). --pdf also writes
+#   calibrate.sh target [--cols 6 --rows 4] [--screen WxH] [--pdf [--tag-size M]] [--out DIR]
+#       AprilGrid as target.png, for showing full screen (F11 / slideshow), at the resolution of
+#       the laptop's built-in screen (read from the kernel; --screen to override). --pdf also writes
 #       target.pdf for PRINTING at actual size (tags --tag-size, default 3 cm). Then MEASURE from outermost black edge to outermost black edge (the small corner
 #       squares) and divide as printed (6 columns: width / 8.1): that is --tag-size in metres.
 #   calibrate.sh all    <euroc_dir> --tag-size M [--cam-until S]       <- ONE recording, both steps
@@ -42,7 +43,7 @@ if [[ $MODE != target ]]; then
         || { echo "$IN: expected cam0/data/*.png and imu0/data.csv" >&2; exit 1; }
 fi
 
-PDF=0 SCREEN=1920x1080 TAG_SIZE="" COLS=6 ROWS=4 CAM_FREQ="" IMU_FREQ="" CAM_UNTIL="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
+PDF=0 SCREEN="" TAG_SIZE="" COLS=6 ROWS=4 CAM_FREQ="" IMU_FREQ="" CAM_UNTIL="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --tag-size) TAG_SIZE=$2; shift 2 ;;
@@ -94,7 +95,26 @@ tagSpacing: 0.3      # gap between tags / tagSize
 EOT
 fi
 
+# Native resolution of the built-in screen (eDP/LVDS), else of the first connected one. Read from
+# the kernel (sysfs), which is right under Wayland too; xrandr there can report scaled values.
+detect_screen() {
+    local d best=""
+    for d in /sys/class/drm/card*-*; do
+        [[ -f $d/status && $(cat "$d/status") == connected && -s $d/modes ]] || continue
+        case $(basename "$d") in
+            *eDP*|*LVDS*|*DSI*) head -1 "$d/modes"; return ;;
+            *) [[ -z $best ]] && best=$(head -1 "$d/modes") ;;
+        esac
+    done
+    echo "$best"
+}
+
 if [[ $MODE == target ]]; then
+    if [[ -z $SCREEN ]]; then
+        SCREEN=$(detect_screen)
+        SCREEN=${SCREEN:-1920x1080}
+        echo "screen resolution: $SCREEN (detected; --screen WxH to override, e.g. for an external monitor)"
+    fi
     pdf_args=""
     [[ $PDF == 1 ]] && pdf_args="--pdf target.pdf --tag-size $TAG_SIZE"
     kalibr "python3 /tool/aprilgrid_png.py --cols $COLS --rows $ROWS --screen $SCREEN --out target.png $pdf_args --check"

@@ -18,7 +18,8 @@ so any source works (`tools/pb3_export`, or another project's importer).
 tools/kalibr_calib/build.sh        # once, ~15-30 min: image zf-kalibr:<commit> (8 GB)
 
 # 1. Target (or skip, and pass an existing Kalibr target yaml with --target FILE)
-tools/kalibr_calib/calibrate.sh target [--screen 1920x1080]   # -> kalibr_target/target.png
+tools/kalibr_calib/calibrate.sh target [--pdf]   # -> kalibr_target/target.png (+ target.pdf)
+#    the PNG gets the built-in screen's native resolution (detected; --screen WxH overrides)
 #    show target.png full screen (F11 / slideshow, no toolbar). For paper add --pdf and print
 #    target.pdf at ACTUAL SIZE (its caption, 3 cm tags, holds only on paper). MEASURE from the
 #    outermost black edge to the outermost black edge (the small corner squares):
