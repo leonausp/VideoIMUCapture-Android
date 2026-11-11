@@ -1028,9 +1028,23 @@ public class CameraCaptureFragment extends Fragment
         } else if (proxy.lockUserExposure() == null) {
             android.widget.Toast.makeText(getActivity(), "Nothing to lock yet: wait for the light meter",
                     android.widget.Toast.LENGTH_SHORT).show();
+        } else if (!prefs().getBoolean(HINT_EXPOSURE_LOCK, false)) {
+            // First use only: what LOCK did is not visible at a glance.
+            prefs().edit().putBoolean(HINT_EXPOSURE_LOCK, true).apply();
+            new android.app.AlertDialog.Builder(getActivity())
+                    .setTitle("Exposure locked")
+                    .setMessage("The preview now shows exactly what will be recorded: the same "
+                            + "brightness, noise and light flicker.\n\n"
+                            + "RECORD uses these values, and they stay locked afterwards.\n\n"
+                            + "Tap UNLOCK, or change the exposure or ISO, to go back to automatic metering.")
+                    .setPositiveButton("OK", null)
+                    .show();
         }
         refreshExposureControls();
     }
+
+    // Shown once; not a setting, so "Reset to recommended settings" leaves it alone.
+    private static final String HINT_EXPOSURE_LOCK = "hint_exposure_lock_shown";
 
     /** Any change to exposure or ISO first releases a lock made with LOCK. */
     private void releaseExposureLockForChange() {
