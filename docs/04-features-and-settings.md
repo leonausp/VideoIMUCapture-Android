@@ -25,14 +25,18 @@ previous fork's stills features are hidden:
 - the **TESTS** menu entry;
 - the "Stereo pair every (s)" setting.
 
-"Lenses in the session" defaults to **Video only**. **Recordings** (the gallery button
-bottom left; browse, play and check sessions on the phone) stays.
+"Lenses in the session" defaults to **Video only**. **Recordings** stays: the gallery button,
+bottom left.
+- **List:** one list, newest first, showing date, length and size. An extra line appears only
+  when a session has a warning, e.g. lost frame records.
+- **Opening a recording:** tap it to open and play it. **ⓘ Info** shows the details: folder
+  name, recorded streams, and delete.
 
 The code is still there. To bring the features back, set
 `buildConfigField "boolean", "STILLS_UI", "true"` in `android_app/app/build.gradle` and rebuild.
 For reference, this is what the modes do. In this build, video sessions are named
-`vid_<date>` with mode `VIDEO`. Recordings from before this change are named `walk_vid_<date>`
-with mode `WALK`, after the hidden default mode.
+`vid_<date>` with mode `VIDEO`. With the stills features enabled, they're named after the
+current mode instead (`walk_vid_<date>` etc.).
 
 | Mode | Stills behaviour | Video |
 |---|---|---|
