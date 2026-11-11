@@ -398,6 +398,15 @@ yaml.safe_dump({'cam0':{'camera_model':'pinhole','intrinsics':k,'distortion_mode
   'distortion_coeffs':d,'resolution':s['resolution'],'rostopic':'/cam0/image_raw'}},
   open('camchain-in.yaml','w'), default_flow_style=None)
 \""
+            # Say plainly when the "factory" values are not factory values.
+            if grep -q 'ESTIMATE' "$IN/cam0/sensor.yaml"; then
+                warn "The lens values are an ${B}ESTIMATE${R} (focal length from mm and sensor size, image centre"
+                warn "assumed), not the phone's calibration: the camera-IMU result is less accurate."
+                warn "Better: calibrate this lens first ('$ME cam <recording> ...') and pass --camchain."
+            fi
+            if tr '\n' ' ' < "$IN/cam0/sensor.yaml" | grep -q 'Distortion: *NONE'; then
+                warn "The phone reports ${B}no distortion${R} for this lens; it is assumed undistorted."
+            fi
         else
             cp "$CAMCHAIN" "$OUT/camchain-in.yaml"
         fi

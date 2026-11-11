@@ -85,6 +85,9 @@ The **default mode is shutter priority**:
 
 The screen has a **basic section** at the top:
 - **Exposure Time** and **ISO**, the values you change per scene;
+- **Rear camera** (only on phones that expose more than one): e.g. the Galaxy S21's ultrawide is
+  its own camera ("Camera 2 · 2.2 mm · wide angle"); on the Pixel 6 there is one rear camera and the
+  zoom reaches the ultrawide. Changing it reopens the camera;
 - **Focus**: tap to focus (default), AF, or Manual with a distance, all locked when recording;
   the same choice as the focus button on the main screen;
 - **Zoom ratio** (below 1 = wide lens);
