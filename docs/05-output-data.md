@@ -15,7 +15,7 @@ On the phone, every session is a folder in the app's private external storage:
 └── …
 ```
 
-Older recordings (before the VIO build) are named `walk_vid_<date>`. With the stills features enabled (`STILLS_UI`), sessions are named after their mode (`walk_vid_`, `object_`, …); test-matrix sessions start with `test<cell>_`.
+With the stills features enabled (`STILLS_UI`), sessions are named after their mode (`walk_vid_`, `object_`, …), and test-matrix sessions start with `test<cell>_`.
 
 Copy recordings to your computer:
 

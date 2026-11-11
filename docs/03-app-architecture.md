@@ -47,7 +47,7 @@ Line counts show where the weight is. ★ marks the classes to read first for VI
 | ★ `CameraCaptureFragment` | 1140 | Preview + Record button. `startRecording()` / `stopRecording()` start and stop everything; contains the GL renderer that feeds the encoder. |
 | `CameraSettingsManager` | 958 | Reads the camera's capabilities and turns user settings into `CaptureRequest` keys (OIS, DVS, focus, exposure, ISO, distortion correction…). |
 | `CaptureModeManager` | 635 | The WALK / OBJECT / PANO modes; names the session folder; locks auto-exposure/white balance for a recording. |
-| `RollActivity`, `SessionActivity`, `Thumbs`, `SessionSummary` | | "Film roll": browse past recordings on the phone and check streams/gaps. |
+| `RollActivity`, `SessionActivity`, `Thumbs`, `SessionSummary` | | **Recordings** (gallery button): list of sessions, playback, recorded streams and gaps, delete. The class names still say "Roll", the previous fork's name for it. |
 | `PermissionHelper`, `InfoDialogFragment`, `AspectFrameLayout`, `SampleGLView`, `FloatSeekBarPreference` | | UI helpers |
 
 ### Camera

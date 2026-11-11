@@ -39,7 +39,7 @@ the app's `camera_census.json` and a short test recording.
 | Magnetometer (uncalibrated) | MEMSIC MMC56X3X | 10000 µs (100 Hz) | 3198 µT | 0.098 µT |
 | Barometer | InvenSense ICP10101 | 40000 µs | 1100 hPa | 0.0001 hPa |
 
-### First test recording (`walk_vid_2026_11_10_21_30_04`, 5.5 s, phone almost still)
+### First test recording (`walk_vid_2026_11_10_21_30_04`, 5.5 s, phone almost still; recorded with an earlier build, hence the old folder name)
 
 Settings: logical camera, 960×1280, H.264, auto exposure frozen, focus fixed by tap, OIS/DVS off.
 
