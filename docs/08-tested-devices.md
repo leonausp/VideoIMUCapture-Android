@@ -89,7 +89,8 @@ Ultrawide values (pinned, 960×1280):
 - **Video Size:** 4:3 with "Maximize Sensor Area", e.g. 1280×960 (stored as 960×1280), or
   1920×1440 if you also want Gaussian splats.
 - **Exposure:** manual, 3–8 ms, ISO as needed; "Freeze exposure while recording" on.
-- **Focus:** manual, about 0.3–0.5 diopters for rooms; never change it between calibration and data.
+- **Focus:** manual, 0.65 diopters (≈ 1.5 m) for indoor use (the default); hyperfocal (≈ 0.31 diopters,
+  3.25 m) for mostly distant scenes. Never change it between calibration and data.
 - **OIS off, DVS off, distortion correction off; OIS data on** (to be verified).
 
 ### Still to measure

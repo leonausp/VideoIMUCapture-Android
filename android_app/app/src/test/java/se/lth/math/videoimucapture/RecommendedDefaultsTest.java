@@ -38,7 +38,10 @@ public class RecommendedDefaultsTest {
         // default, ISO is metered per scene instead).
         assertEquals(300, RecommendedDefaults.ISO);
         assertEquals("MANUAL", RecommendedDefaults.FOCUS_MODE);
-        assertTrue(RecommendedDefaults.FOCUS_HYPERFOCAL);
+        // Deliberate difference: the recordings used hyperfocal (~3.25 m); the default is a
+        // fixed 0.65 diopters (~1.5 m) for indoor scenes, sharp enough from ~0.75 m outwards.
+        assertFalse(RecommendedDefaults.FOCUS_HYPERFOCAL);
+        assertEquals(0.65f, RecommendedDefaults.FOCUS_DISTANCE, 0f);
         assertFalse(RecommendedDefaults.OIS);
         assertTrue(RecommendedDefaults.OIS_DATA);
         assertFalse(RecommendedDefaults.DVS);
