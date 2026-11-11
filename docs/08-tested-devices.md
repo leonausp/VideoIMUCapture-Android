@@ -102,3 +102,22 @@ Ultrawide values (pinned, 960×1280):
   available sizes and frame rates change?
 - Kalibr camera–IMU calibration: time offset and its repeatability across recordings.
 - Long recordings: thermal throttling and IMU/frame stability over several minutes.
+
+## Samsung Galaxy S21 (`SM-G991B`, Android 15)
+
+First check on 2026-11-11: one 6.6 s clip with the recommended settings (tap to focus), plus the
+camera census (`data/other_phones/census_SM-G991B.json`, not committed).
+
+| | Value | Consequence |
+|---|---|---|
+| Timestamp source | **REALTIME** | camera and IMU on one clock |
+| IMU | uncalibrated gyro, accelerometer and magnetometer; **500 Hz**, perfectly regular | |
+| Rear camera 0 | standalone (not a logical multi-camera), 5.4 mm, zoom 1.0–8.0 | the ultrawide (camera 2, 2.2 mm) is a separate id the app does not open; zoom < 1 does not exist here |
+| Video size | **1440×1080** (stored 1080×1440); 1280×960 is not offered | the app picks the next 4:3 size |
+| Factory intrinsics | fx 3073.8 sensor px → **1097.8 px** in the video; per-frame value constant (no focus breathing modelled) | start values fine |
+| Factory distortion | **zeros**; no distortion-correction control | unknown whether the image is corrected internally: calibrate the lens or let the SLAM system estimate it; the export warns |
+| Focus scale | `CALIBRATED` (the Pixel 6's is `APPROXIMATE`) | |
+| Rolling-shutter readout | 16.6 ms | expected camera–IMU time offset ≈ 8.3 ms + 1–2 ms |
+| ISO | maximum **3200** | at 5 ms, dim rooms are underexposed (▼2.6 stops seen); add light |
+| Camera–IMU pose | not reported (`LENS_POSE_REFERENCE` = PRIMARY_CAMERA) | Kalibr as on the Pixel |
+| Clip | 149 frame rows, none lost; spacing 33.29–33.36 ms; exposure 5 ms, ISO 3200, focus 2.05 constant; OIS/EIS off | |
