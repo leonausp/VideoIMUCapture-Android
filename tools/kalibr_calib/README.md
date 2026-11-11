@@ -15,44 +15,45 @@ so any source works (`tools/pb3_export`, or another project's importer).
 ## Usage
 
 ```bash
-tools/kalibr_calib/build.sh        # once, ~15-30 min: image zf-kalibr:<commit> (8 GB)
-
-# 1. Target (or skip, and pass an existing Kalibr target yaml with --target FILE)
-tools/kalibr_calib/calibrate.sh target [--pdf]   # -> kalibr_target/target.png (+ target.pdf)
-#    the PNG gets the built-in screen's native resolution (detected; --screen WxH overrides)
-#    show target.png full screen (F11 / slideshow, no toolbar). For paper add --pdf and print
-#    target.pdf at ACTUAL SIZE (its caption, 3 cm tags, holds only on paper). MEASURE from the
-#    outermost black edge to the outermost black edge (the small corner squares):
-#    6 columns: tag size = width / 8.1 (check: 4 rows, height / 5.5). That is --tag-size [m].
-
-# 2. ONE recording for everything (recommended): first ~30 s calm, then ~40 s brisk
-tools/kalibr_calib/calibrate.sh all    <euroc_dir> --tag-size 0.031 --cam-until 30
-#    intrinsics from the calm part, then camera-IMU with them, same recording and target
-#    -> <euroc_dir>/../kalibr_all/all-camchain.yaml + all-camchain-imucam.yaml (+ reports)
-
-# Or the two steps separately (e.g. reusing intrinsics from another tool):
-# 2a. Camera intrinsics (pinhole-radtan), Kalibr uses 5 images/s
-tools/kalibr_calib/calibrate.sh cam    <euroc_dir> --tag-size 0.031
-#    -> <euroc_dir>/../kalibr_cam/cam-camchain.yaml (+ report PDF)
-
-# 2b. Camera–IMU extrinsics + time offset, 15 images/s
-tools/kalibr_calib/calibrate.sh imucam <euroc_dir> --tag-size 0.031 \
-    --camchain <...>/kalibr_cam/cam-camchain.yaml [--imu-yaml allan.yaml]
-#    -> <euroc_dir>/../kalibr_imucam/imucam-camchain-imucam.yaml (T_cam_imu, timeshift_cam_imu)
+tools/kalibr_calib/build.sh                      # once, 15-30 min: the Kalibr image (8 GB)
+tools/kalibr_calib/calibrate.sh --help           # the guide
 ```
 
-Options: `--cols/--rows` (AprilGrid, default 6×4: fits a laptop screen or A4 landscape),
-`--target FILE` (any Kalibr target yaml, e.g. a checkerboard), `--cam-until S` (intrinsics from the
-first S seconds only), `--cam-freq`/`--imu-freq` (images per second Kalibr uses, 5/15), `--out DIR`, `--imu-yaml FILE` (IMU noise, Kalibr format). Without `--imu-yaml` the IMU
-noise values are marked placeholders (typical phone values, inflated); replace them with an
-Allan-variance result.
+**1. Target.** `calibrate.sh target [--pdf]` writes `kalibr_target/target.png` at the built-in
+screen's resolution (detected; `--screen WxH` overrides), and with `--pdf` an A4 `target.pdf`.
+Show the PNG full screen (F11), or print the PDF at actual size and glue it flat. Both say below
+the grid how to measure: W = outermost black edge to outermost black edge, tag size = W / 8.1.
 
-`--camchain` can be any Kalibr camchain file, including one from another intrinsics tool, as long as
-its resolution matches the images.
+**2. Record** ~70 s, target still, exposure 2-3 ms: 0-30 s calm (grid in every part of the
+image), 30-70 s brisk (rotate and move along all axes; the grid may be partly out of view).
 
-`aprilgrid_png.py` draws the PNG and the PDF from Kalibr's own tag codes and layout on whole pixels,
-with the measuring instructions printed below the grid, and checks
-it with Kalibr's detector (`--check`; all 96 corners at 1920×1080, 1366×768, 1280×800).
+**3. Calibrate** (10-30 min):
+
+```bash
+tools/kalibr_calib/calibrate.sh all <recording> --tag-size 0.0321 --cam-until 30
+```
+
+`<recording>` is a EuRoC folder (`cam0/data/<t_ns>.png` + `imu0/data.csv`) or, when
+`tools/pb3_export` sits next to this folder, a phone recording (`video_meta.pb3` + video), which
+is converted automatically with mid-exposure timestamps. The lens is calibrated from the first
+30 s, then camera-IMU with it. Kalibr's output goes to `kalibr.log`; the terminal shows the steps,
+a rated summary (reprojection error, focal length, time offset, rotation vs. the phone's axes,
+camera-IMU distance) and the result files:
+
+- `all-camchain.yaml`: lens calibration
+- `all-camchain-imucam.yaml`: lens + camera-IMU, what SLAM needs
+- `all-report-cam.pdf`, `all-report-imucam.pdf`: Kalibr's plots
+
+Separate steps: `cam <recording>` (lens only) and `imucam <recording> --camchain FILE` (camera-IMU
+with an existing lens calibration, from Kalibr or another tool). Other options: `--target FILE`
+(any Kalibr target, e.g. a checkerboard), `--imu-yaml FILE` (IMU noise from an Allan-variance
+run; otherwise marked placeholder values), `--cols/--rows`, `--out DIR`, `--cam-freq/--imu-freq`.
+Mistakes such as a tag size in centimetres, a missing image or a wrong folder are reported with
+what to do.
+
+`aprilgrid_png.py` draws the PNG and the PDF from Kalibr's own tag codes and layout on whole
+pixels, with the measuring instructions below the grid, and checks them with Kalibr's detector
+(`--check`). `summarize.py` writes the rated summary from Kalibr's result files.
 
 ## Timestamps
 
