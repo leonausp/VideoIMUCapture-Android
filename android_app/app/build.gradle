@@ -85,6 +85,12 @@ android {
     testOptions {
         unitTests.returnDefaultValues = true
     }
+
+    // RecommendedDefaultsTest reads settings.xml at run time; declare it as a test input so a
+    // change to the XML re-runs the tests instead of reporting them up to date.
+    testOptions.unitTests.all {
+        inputs.file(project.file("src/main/res/xml/settings.xml"))
+    }
 }
 
 protobuf {

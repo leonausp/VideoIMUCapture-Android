@@ -211,7 +211,8 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
             proxy.resetStereoCounts();
         }
         mVideoLockedRadiometry = PreferenceManager
-                .getDefaultSharedPreferences(mActivity).getBoolean("lock_radiometry", true);
+                .getDefaultSharedPreferences(mActivity).getBoolean("lock_radiometry",
+                        RecommendedDefaults.LOCK_RADIOMETRY);
         if (proxy != null && mVideoLockedRadiometry) {
             proxy.lockAutoAlgorithms(true);
         }
@@ -478,7 +479,7 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
             return;
         }
         int intervalS = PreferenceManager
-                .getDefaultSharedPreferences(mActivity).getInt("stereo_interval_s", 0);
+                .getDefaultSharedPreferences(mActivity).getInt("stereo_interval_s", RecommendedDefaults.STEREO_INTERVAL_S);
         StillCaptureManager.CaptureMode cm = mMode == Mode.PANO
                 ? StillCaptureManager.CaptureMode.PANO
                 : StillCaptureManager.CaptureMode.WALK;

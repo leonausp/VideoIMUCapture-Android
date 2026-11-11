@@ -228,7 +228,7 @@ public class CameraCaptureFragment extends Fragment
             return 0;
         }
         return PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .getInt("idle_sleep_s", 60);
+                .getInt("idle_sleep_s", RecommendedDefaults.IDLE_SLEEP_S);
     }
 
     private void armIdleTimer() {
@@ -600,7 +600,7 @@ public class CameraCaptureFragment extends Fragment
         // it puts a second sensor into the recording's own request for the whole clip, and what
         // that does to the video is unmeasured until the S1/S2 cells have been shot.
         // Hidden with the stills UI: a value stored earlier must not keep a second sensor running.
-        int stereoEvery = BuildConfig.STILLS_UI ? prefs.getInt("stereo_interval_s", 0) : 0;
+        int stereoEvery = BuildConfig.STILLS_UI ? prefs.getInt("stereo_interval_s", RecommendedDefaults.STEREO_INTERVAL_S) : 0;
         if (stereoEvery > 0) {
             StillCaptureManager.CaptureMode cm;
             switch (modes.getMode()) {
@@ -610,13 +610,13 @@ public class CameraCaptureFragment extends Fragment
             }
             camera2Proxy.startPeriodicStereo(stereoEvery * 1000L, dir, recordingWriter, cm);
         }
-        mRenderer.setEncoderPrefs(prefs.getString("video_codec", VideoEncoderCore.DEFAULT_MIME_TYPE),
-                prefs.getInt("video_bitrate_mbps", 0) * 1_000_000);
+        mRenderer.setEncoderPrefs(prefs.getString("video_codec", RecommendedDefaults.VIDEO_CODEC),
+                prefs.getInt("video_bitrate_mbps", RecommendedDefaults.VIDEO_BITRATE_MBPS) * 1_000_000);
 
         // Blur budget (#38): only when explicitly enabled AND exposure is allowed to float —
         // a locked radiometry has nothing for it to do. Default off, so this is normally skipped.
-        boolean budgetOn = prefs.getBoolean("blur_budget", false)
-                && !prefs.getBoolean("lock_radiometry", true);
+        boolean budgetOn = prefs.getBoolean("blur_budget", RecommendedDefaults.BLUR_BUDGET)
+                && !prefs.getBoolean("lock_radiometry", RecommendedDefaults.LOCK_RADIOMETRY);
         if (budgetOn && camera2Proxy != null) {
             if (mBlurBudget == null) {
                 mBlurBudget = new BlurBudgetController(getmImuManager(), camera2Proxy,
@@ -625,9 +625,9 @@ public class CameraCaptureFragment extends Fragment
                             mSmearPx = smearPx;
                         });
             }
-            mBlurBudget.start(prefs.getInt("blur_budget_px", 3),
-                    prefs.getInt("hold_still_px", 40),
-                    prefs.getBoolean("blur_budget_manual", false));
+            mBlurBudget.start(prefs.getInt("blur_budget_px", RecommendedDefaults.BLUR_BUDGET_PX),
+                    prefs.getInt("hold_still_px", RecommendedDefaults.HOLD_STILL_PX),
+                    prefs.getBoolean("blur_budget_manual", RecommendedDefaults.BLUR_BUDGET_MANUAL));
         }
 
         mGLView.queueEvent(new Runnable() {
@@ -837,7 +837,7 @@ public class CameraCaptureFragment extends Fragment
             // walk fires a still. A quiet moment seen 100 ms late is a still fired 14 cm
             // further down the walk, and nothing in the resulting file would look wrong.
             boolean batching = PreferenceManager
-                    .getDefaultSharedPreferences(getActivity()).getInt("imu_batch_ms", 0) > 0;
+                    .getDefaultSharedPreferences(getActivity()).getInt("imu_batch_ms", RecommendedDefaults.IMU_BATCH_MS) > 0;
             enableWarning(cameraSettingsManager.OISEnabled()
                     || cameraSettingsManager.DVSEnabled()
                     || cameraSettingsManager.DistortionCorrectionEnabled()
