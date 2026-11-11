@@ -85,17 +85,21 @@ The **default mode is shutter priority**:
 
 The screen has a **basic section** at the top:
 - **Exposure Time** and **ISO**, the values you change per scene;
-- **Rear camera** (only on phones that expose more than one): e.g. the Galaxy S21's ultrawide is
-  its own camera ("Camera 2 · 2.2 mm · wide angle"); on the Pixel 6 there is one rear camera and the
-  zoom reaches the ultrawide. Changing it reopens the camera;
+- **Lens**: the rear lenses this phone lets apps use, e.g. "Main · 6.8 mm" and "Ultrawide · 2.4 mm".
+  How the app reaches a lens differs per phone and is handled for you: on the Pixel 6 the ultrawide
+  is the logical camera at its lowest zoom (0.67), on the Galaxy S21 it is a separate camera
+  ("2"). A lens the phone does not expose to apps (often the telephoto) cannot be listed.
+  Changing it reopens the camera; reset goes back to the main lens;
 - **Focus**: tap to focus (default), AF, or Manual with a distance, all locked when recording;
   the same choice as the focus button on the main screen;
-- **Zoom ratio** (below 1 = wide lens);
 - **Show expert settings**, a switch that reveals all the categories below (lens, video size,
   stabilisation, exposure mode, recording);
-- **Reset to recommended settings**, which puts everything back to the recommended values for
-  VIO: main lens, Video only, 1280×960, shutter priority at 5 ms (manual ISO starts at 300), manual
-  tap to focus (locked when recording), OIS off with OIS data on, no EIS or distortion correction.
+- **Reset to recommended settings**, which puts everything back to the recommended values for VIO,
+  **as far as this camera supports them**: main camera, Video only, 1280×960 (or, where the camera
+  doesn't offer it, the nearest 4:3 size, e.g. 1440×1080 on the Galaxy S21), 5 ms with automatic ISO
+  (shutter priority; plain auto exposure without manual exposure), tap to focus locked when
+  recording (a fixed-focus lens has none), OIS off with OIS data on, no EIS or distortion
+  correction. Its description on the settings screen says what it gives on **this** phone.
 
 These defaults live in one place, `RecommendedDefaults.java`. A unit test checks them, and also
 checks that `settings.xml` declares the same defaults.
@@ -111,7 +115,7 @@ column is our suggestion for SLAM datasets; check each one on your phone.
 | Camera Lens | "Logical" (default: the phone picks the physical lens) or a specific physical camera ID. With a physical ID the video stream is pinned to that lens, and the per-frame metadata and `CameraInfo` are read for **that lens** (`metadata_camera_id` in the file says which). At zoom 1.0 the phone may crop a wider lens to the main camera's field of view; see [Lens selection on a logical camera](#lens-selection-on-a-logical-camera). | **the main camera's physical ID**, not "Logical", so the lens can never switch |
 | Maximize Sensor Area | only list resolutions with the sensor's aspect ratio (within 1%, so standard 4:3 sizes count on a 4080×3072 sensor). Only filters the list: it never changes the stored size. | **on**: full field of view, and the scaled factory intrinsics are only right for full-sensor sizes |
 | Video Size | resolution. With a physical lens selected under Camera Lens, only sizes that lens can deliver are offered, and the size is re-checked every time the camera opens. A size the current list doesn't contain is shown as "(current, not full sensor)" and stays selected until you pick another. The main screen shows the size the camera was **opened** with; it updates when the camera reopens. | a moderate **4:3** size, e.g. 1280×960 or 1920×1440; keep it fixed across calibration and data |
-| Zoom ratio | zoom / crop. Slider steps are round values (…, 0.9, **1.0**, 1.1, …) plus the exact minimum and maximum. **Fully left** = the widest zoom (0.67 on the Pixel 6), which gives the full ultrawide field of view with Camera Lens = ultrawide. | **1.0** for the main lens; **fully left** for the ultrawide. Never change it after calibration. |
+| Digital zoom (expert) | the zoom ratio behind the **Lens** setting. Above a lens's own value it only crops the image (fewer pixels, narrower view), which does not help VIO. Slider steps are round values plus the exact minimum and maximum. | leave it to the **Lens** setting; never change it after calibration |
 | Enable Distortion Correction | lets the phone undistort the image | **off**, so the SLAM system sees the raw lens model you calibrated |
 | Lenses in the session | which extra streams the session holds: "Metric pair" (default; main + ultrawide stereo streams, plus JPEG/RAW), "All rear lenses", or **"Video only"** (nothing but the video stream; stills and stereo pairs are then disabled). Takes effect when the camera reopens. | **Video only** for VIO: every extra stream is a constraint on the camera driver |
 | Focus at hyperfocal | in manual focus, use the hyperfocal distance computed from the lens data instead of the Focus Distance slider | **off**: on the Pixel 6 the computed value (0.31) is beyond infinity on the phone's offset focus scale (see Focus Distance) |

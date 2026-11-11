@@ -23,10 +23,9 @@
             app:persistent="false"
             app:summary="Sensitivity"/>
         <ListPreference
-            app:key="rear_camera"
-            app:title="Rear camera"
+            app:key="lens"
+            app:title="Lens"
             app:persistent="false"
-            app:isPreferenceVisible="false"
             app:useSimpleSummaryProvider="true"/>
         <ListPreference
             app:key="focus_mode"
@@ -39,12 +38,7 @@
             app:showSeekBarValue="true"
             app:persistent="false"
             app:summary="Diopters on the phone scale; bigger = closer"/>
-        <se.lth.math.videoimucapture.FloatSeekBarPreference
-            app:key="zoom_ratio"
-            app:title="Zoom ratio"
-            app:showSeekBarValue="true"
-            app:persistent="false"
-            app:summary="Set to less than 1 to use the wide lens, if available (slider fully left = widest)."/>
+
 
         <SwitchPreferenceCompat
             app:key="show_expert_settings"
@@ -55,12 +49,19 @@
         <Preference
             app:key="reset_defaults"
             app:title="Reset to recommended settings"
-            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), tap to focus, locked when recording, OIS off with OIS data on." />
+            app:summary="Recommended for VIO on this camera (the details are filled in when the screen opens)." />
     </PreferenceCategory>
 
     <PreferenceCategory
         app:key="general_category"
         app:title="General">
+
+        <se.lth.math.videoimucapture.FloatSeekBarPreference
+            app:key="zoom_ratio"
+            app:title="Digital zoom"
+            app:showSeekBarValue="true"
+            app:persistent="false"
+            app:summary="Use the Lens setting to change lens. Above the native value of the lens this only crops the image (fewer pixels, narrower view); not useful for VIO."/>
 
         <ListPreference
             app:key="camera_id"

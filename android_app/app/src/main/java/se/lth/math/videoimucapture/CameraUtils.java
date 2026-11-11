@@ -106,10 +106,16 @@ public class CameraUtils {
         return getRearCameraId(manager);
     }
 
-    /** Rear cameras the phone exposes: id and a label like "Camera 2 · 2.2 mm · wide angle". */
-    public static java.util.List<String[]> listRearCameras(CameraManager manager) {
+    /**
+     * The rear lenses an app can reach, as {key, label}. key = "cameraId:zoom". Phones differ:
+     * a logical multi-camera (Pixel 6) reaches its ultrawide by zoom below 1 -- offered as
+     * "Ultrawide" at the minimum zoom; a standalone rear camera (Galaxy S21 ultrawide, id "2") is
+     * opened by id at zoom 1. Kinds are relative to the first rear camera's main lens. A lens the
+     * phone does not expose to apps cannot be listed.
+     */
+    public static java.util.List<String[]> listLenses(CameraManager manager) {
         java.util.List<String[]> out = new java.util.ArrayList<>();
-        Float reference = null;
+        Float mainMm = null;
         try {
             for (String id : manager.getCameraIdList()) {
                 CameraCharacteristics c = manager.getCameraCharacteristics(id);
@@ -119,24 +125,37 @@ public class CameraUtils {
                 }
                 float[] f = c.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
                 float mm = (f != null && f.length > 0) ? f[0] : 0f;
-                if (reference == null) {
-                    reference = mm;   // the first rear camera is the default one
+                if (mainMm == null) {
+                    mainMm = mm;
                 }
-                String kind = "";
-                if (reference > 0 && mm > 0 && mm < 0.75f * reference) {
-                    kind = " · wide angle";
-                } else if (reference > 0 && mm > 1.4f * reference) {
-                    kind = " · tele";
-                } else if (out.isEmpty()) {
-                    kind = " · main";
+                out.add(new String[]{id + ":1.0", lensLabel(mm, mainMm)});
+                // A logical multi-camera whose zoom goes below 1 reaches a wider lens that way.
+                if (android.os.Build.VERSION.SDK_INT >= 30) {
+                    android.util.Range<Float> z = c.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE);
+                    if (z != null && z.getLower() < 0.95f) {
+                        float wideMm = mm * z.getLower();   // nominal; the label uses the physical lens if known
+                        if (android.os.Build.VERSION.SDK_INT >= 28) {
+                            for (String pid : c.getPhysicalCameraIds()) {
+                                float[] pf = manager.getCameraCharacteristics(pid)
+                                        .get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+                                if (pf != null && pf.length > 0 && pf[0] < 0.95f * mm) {
+                                    wideMm = Math.min(wideMm, pf[0]);
+                                }
+                            }
+                        }
+                        out.add(new String[]{id + ":" + z.getLower(), lensLabel(wideMm, mainMm)});
+                    }
                 }
-                out.add(new String[]{id, String.format(java.util.Locale.US,
-                        "Camera %s · %.1f mm%s", id, mm, kind)});
             }
         } catch (CameraAccessException | IllegalArgumentException e) {
             e.printStackTrace();
         }
         return out;
+    }
+
+    private static String lensLabel(float mm, float mainMm) {
+        String kind = mm < 0.75f * mainMm ? "Ultrawide" : mm > 1.4f * mainMm ? "Tele" : "Main";
+        return String.format(java.util.Locale.US, "%s · %.1f mm", kind, mm);
     }
 
     public static String getRearCameraId(CameraManager manager) {

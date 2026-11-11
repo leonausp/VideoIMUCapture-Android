@@ -72,7 +72,7 @@ public class CaptureSettings extends PreferenceFragmentCompat {
 
         CameraSettingsManager cameraSettingsManager = ((CameraCaptureActivity) getActivity()).getmCameraSettingsManager();
         cameraSettingsManager.updatePreferences(getPreferenceScreen());
-        setUpRearCamera();
+        setUpLens();
 
         // Basic vs expert: the expert categories are shown only with the switch on. Visibility is
         // set on the CATEGORIES, so settings the camera code hides inside them stay hidden.
@@ -85,6 +85,10 @@ public class CaptureSettings extends PreferenceFragmentCompat {
             });
         }
         androidx.preference.Preference reset = findPreference("reset_defaults");
+        if (reset != null && cameraSettingsManager != null) {
+            // Not a fixed text: what the reset gives depends on what this camera offers.
+            reset.setSummary(cameraSettingsManager.describeRecommended());
+        }
         if (reset != null) {
             reset.setOnPreferenceClickListener(pref -> {
                 confirmReset();
@@ -96,41 +100,61 @@ public class CaptureSettings extends PreferenceFragmentCompat {
 
 
     /**
-     * "Rear camera": only shown when the phone exposes more than one rear camera (e.g. the
-     * Galaxy S21's ultrawide is its own camera id; on the Pixel 6 there is one, and the zoom
-     * reaches the ultrawide). Changing it reopens the camera.
+     * "Lens": one choice for "which lens records", whatever the phone does underneath -- zoom
+     * below 1 on a logical multi-camera (Pixel 6 ultrawide), a separate camera id (Galaxy S21
+     * ultrawide). It writes the two underlying settings, rear_camera and zoom_ratio, and reopens
+     * the camera. Digital zoom stays in the expert settings.
      */
-    private void setUpRearCamera() {
-        androidx.preference.ListPreference p = findPreference("rear_camera");
+    private void setUpLens() {
+        androidx.preference.ListPreference p = findPreference("lens");
         if (p == null) {
             return;
         }
         android.hardware.camera2.CameraManager cm = (android.hardware.camera2.CameraManager)
                 requireContext().getSystemService(android.content.Context.CAMERA_SERVICE);
-        java.util.List<String[]> cams = CameraUtils.listRearCameras(cm);
-        if (cams.size() < 2) {
+        java.util.List<String[]> lenses = CameraUtils.listLenses(cm);
+        if (lenses.isEmpty()) {
             p.setVisible(false);
             return;
         }
-        String[] ids = new String[cams.size()];
-        String[] labels = new String[cams.size()];
-        for (int i = 0; i < cams.size(); i++) {
-            ids[i] = cams.get(i)[0];
-            labels[i] = cams.get(i)[1];
+        String[] keys = new String[lenses.size()];
+        String[] labels = new String[lenses.size()];
+        for (int i = 0; i < lenses.size(); i++) {
+            keys[i] = lenses.get(i)[0];
+            labels[i] = lenses.get(i)[1];
         }
         p.setEntries(labels);
-        p.setEntryValues(ids);
+        p.setEntryValues(keys);
         android.content.SharedPreferences prefs =
                 androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
-        p.setValue(CameraUtils.getRearCameraId(cm, prefs.getString("rear_camera", null)));
+        // Current lens: the open camera, and the option whose zoom is closest to the current zoom.
+        String id = CameraUtils.getRearCameraId(cm, prefs.getString("rear_camera", null));
+        float zoom = prefs.getFloat("zoom_ratio", RecommendedDefaults.ZOOM_RATIO);
+        String current = null;
+        float best = Float.MAX_VALUE;
+        for (String k : keys) {
+            String[] kz = k.split(":");
+            if (kz[0].equals(id)) {
+                float d = Math.abs(Float.parseFloat(kz[1]) - zoom);
+                if (d < best) {
+                    best = d;
+                    current = k;
+                }
+            }
+        }
+        if (current != null) {
+            p.setValue(current);
+        }
         p.setVisible(true);
         p.setOnPreferenceChangeListener((pref, value) -> {
-            prefs.edit().putString("rear_camera", (String) value).commit();
-            android.widget.Toast.makeText(requireContext(), "Switching camera…",
+            String[] kz = ((String) value).split(":");
+            prefs.edit().putString("rear_camera", kz[0])
+                    .putFloat("zoom_ratio", Float.parseFloat(kz[1])).commit();
+            android.widget.Toast.makeText(requireContext(), "Switching lens…",
                     android.widget.Toast.LENGTH_SHORT).show();
             androidx.fragment.app.FragmentActivity a = requireActivity();
             a.getSupportFragmentManager().popBackStackImmediate();
-            a.recreate();   // reopens the camera with the new id
+            a.recreate();   // reopens the camera with the new id and zoom
             return false;   // already stored
         });
     }
@@ -182,6 +206,7 @@ public class CaptureSettings extends PreferenceFragmentCompat {
                 }
             }
         }
+        e.remove("rear_camera");   // behind the Lens setting, not on the screen itself
         e.commit();   // synchronously: the rebuilt screen must not read the old values
         android.widget.Toast.makeText(requireContext(), "Settings reset to recommended values",
                 android.widget.Toast.LENGTH_SHORT).show();

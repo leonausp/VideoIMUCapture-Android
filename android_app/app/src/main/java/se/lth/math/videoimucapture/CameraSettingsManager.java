@@ -250,6 +250,28 @@ public class CameraSettingsManager {
                 != CameraSettingFocusMode.FocusMode.MANUAL;
     }
 
+    /**
+     * What "Reset to recommended settings" gives on THIS camera, in words: the video size is the
+     * recommended one only where the camera offers it (the Galaxy S21 has no 1280x960 and gets
+     * 1440x1080), and shutter priority needs manual exposure.
+     */
+    public String describeRecommended() {
+        CameraSetting vs = mCameraSettings.get(Setting.VIDEO_SIZE);
+        String size = vs != null ? ((CameraSettingVideoSize) vs).recommendedSize().toString()
+                : RecommendedDefaults.VIDEO_SIZE;
+        String rec = RecommendedDefaults.VIDEO_SIZE;
+        String sizeText = size.equals(rec) ? size : size + " (this camera has no " + rec + ")";
+        CameraSetting ex = mCameraSettings.get(Setting.EXPOSURE_MODE);
+        boolean sp = ex != null && ((CameraSettingExposureMode) ex).supportsShutterPriority();
+        String exposure = sp ? String.format(Locale.US, "%.0f ms with automatic ISO (shutter priority)",
+                RecommendedDefaults.EXPOSURE_MS) : "automatic exposure (no manual exposure on this camera)";
+        Float minFocus = getMinFocusDistance();
+        String focus = (minFocus != null && minFocus == 0f) ? "fixed-focus lens"
+                : "tap to focus, locked when recording";
+        return "Main camera, video only, " + sizeText + ", " + exposure + ", " + focus
+                + ", OIS off with OIS data on, no stabilisation or distortion correction.";
+    }
+
     /** Closest focus in diopters (the slider's max); 0 for a fixed-focus lens, null if unknown. */
     public Float getMinFocusDistance() {
         CameraSetting s = mCameraSettings.get(Setting.FOCUS_MODE);
@@ -481,6 +503,16 @@ class CameraSettingVideoSize extends CameraSetting {
         } catch (CameraAccessException | IllegalArgumentException e) {
             Log.w(TAG, "could not read physical camera " + id + ": " + e);
         }
+    }
+
+    /** The size a reset gives on this camera: the recommended one, else the nearest 4:3 one. */
+    Size recommendedSize() {
+        if (mValidSizes == null || mValidSizes.isEmpty() || mValidSizes.contains(DEFAULT_VIDEO_SIZE)) {
+            return DEFAULT_VIDEO_SIZE;
+        }
+        int idx = VideoSizeRules.closest(toArray(mValidSizes),
+                DEFAULT_VIDEO_SIZE.getWidth(), DEFAULT_VIDEO_SIZE.getHeight());
+        return idx >= 0 ? mValidSizes.get(idx) : DEFAULT_VIDEO_SIZE;
     }
 
     private static int[][] toArray(List<Size> sizes) {
@@ -824,6 +856,10 @@ class CameraSettingFocusMode extends CameraSetting {
 }
 
 class CameraSettingExposureMode extends CameraSetting {
+
+    boolean supportsShutterPriority() {
+        return mValidModes.contains(Mode.SHUTTER_PRIORITY);
+    }
 
     // SHUTTER_PRIORITY: fixed (maximum) exposure time, ISO from auto exposure's metering; see
     // ShutterPriority. Appended LAST so the ordinals of the older modes (and the description

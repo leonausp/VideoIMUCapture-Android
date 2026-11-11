@@ -60,8 +60,8 @@ doesn't change the intrinsics and hardly matters for the rest.
 ## 3. Record
 
 In the app: the settings you'll use for SLAM (lens, resolution, focus), plus **exposure 2–3 ms**
-(exposure button, bottom right; back to AUTO afterwards). Choose the lens with the zoom (1.0 = main,
-the minimum = ultrawide); calibrate each lens you use separately. The target lies or hangs still;
+(exposure button, bottom right; back to AUTO afterwards). Choose the lens under Settings → **Lens** ("Main" or
+"Ultrawide"); calibrate each lens you use separately. The target lies or hangs still;
 you move the phone. About **60–70 s**: start calmly, then rotate the phone around **all three
 axes** and move it along all three directions, briskly, keeping the grid at least partly in view.
 Moving towards and away from the target helps the offset along the viewing direction.
