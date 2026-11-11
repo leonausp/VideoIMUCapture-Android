@@ -9,6 +9,7 @@ VideoIMUCapture-Android/
 ├── protobuf/             ← recording.proto: the schema of the recorded metadata file
 ├── calibration/          ← Python scripts + a SECOND Docker image (Kalibr) for calibration/conversion
 ├── analysis/             ← Python scripts from the previous fork for checking recordings
+├── tools/pb3_export/     ← converter: recordings → CSV, camera.json and EuRoC (Docker)
 ├── libs/dockers/         ← git submodule with generic Docker helper scripts (used by calibration/)
 ├── docs/                 ← this documentation
 ├── images/, graphics/    ← screenshots and icons used in the README
