@@ -76,6 +76,22 @@ def distort(x, y, k1, k2, k3, p1, p2):
     return xd, yd
 
 
+def fit_radial_k1k2(k1, k2, k3, r_max, n=400):
+    """k1', k2' of a 2-term radial model that best matches k1, k2, k3 for radii 0..r_max.
+
+    EuRoC/Kalibr radial-tangential has no k3, and dropping it is not small: on the Pixel 6
+    main lens (k3 = 0.12) the image corners move by ~56 px. Least squares on the radial
+    displacement r * (k1 r^2 + k2 r^4 + k3 r^6), weighted by r (image area), leaves ~0.6 px
+    mean and ~4 px in the outermost corner. Returns (k1', k2', max error in normalized units).
+    """
+    r = np.linspace(0.0, r_max, n)
+    target = r * (k1 * r ** 2 + k2 * r ** 4 + k3 * r ** 6)
+    A = np.vstack([r ** 3, r ** 5]).T
+    w = np.sqrt(np.maximum(r, 1e-9))[:, None]
+    c, *_ = np.linalg.lstsq(A * w, target * w[:, 0], rcond=None)
+    return float(c[0]), float(c[1]), float(np.max(np.abs(A @ c - target)))
+
+
 def rotate_point(x, y, sensor_orientation):
     o = int(sensor_orientation) % 360
     if o == 90:
@@ -206,6 +222,16 @@ def export_session(sess, R, args, report):
             "k1": k1, "k2": k2, "p1": p1i, "p2": p2i, "k3": k3,
             "note": "factory LENS_DISTORTION, tangential terms rotated from sensor to video "
                     "orientation; OpenCV order is [k1, k2, p1, p2, k3]"}
+        if k3 != 0 and len(intr) >= 4 and intr[0] > 0:
+            # Radius of the image corner farthest from the principal point, normalized.
+            w, h = cm.resolution.width, cm.resolution.height
+            r_max = max(math.hypot(x - intr[2], y - intr[3]) for x in (0, w) for y in (0, h)) / intr[0]
+            f1, f2, err = fit_radial_k1k2(k1, k2, k3, r_max)
+            derived["distortion_radtan4_image"] = {
+                "k1": f1, "k2": f2, "p1": p1i, "p2": p2i,
+                "max_error_px": err * intr[0],
+                "note": "k1, k2 refit over the image (r <= %.3f) to include k3, for 4-coefficient "
+                        "models (EuRoC, Kalibr radtan); used in euroc cam0/sensor.yaml" % r_max}
     rows_meta = list(d.video_meta)
     if rows_meta:
         derived["focal_length_mm"] = rows_meta[0].focal_length_mm
@@ -275,7 +301,7 @@ def export_session(sess, R, args, report):
     tc = np.array([r[0] for r in cam_rows], dtype=np.int64)
     cam_hz = float(1e9 / np.median(np.diff(tc))) if len(tc) > 1 else 0.0
     identity = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
-    dist = derived.get("distortion_radtan_image")
+    dist = derived.get("distortion_radtan4_image") or derived.get("distortion_radtan_image")
     cam_yaml = {
         "sensor_type": "camera",
         "comment": "Zero-Friction VIO SLAM export. START VALUES ONLY: intrinsics/distortion are the "

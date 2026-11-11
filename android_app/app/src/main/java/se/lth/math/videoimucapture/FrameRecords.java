@@ -122,7 +122,9 @@ final class FrameRecords {
                                                  boolean mSwappedDimensions,
                                                  String requestedCamera,
                                                  String metadataCameraId,
-                                                 String logicalCameraId) {
+                                                 String logicalCameraId,
+                                                 CameraCharacteristics distortionFallback,
+                                                 String distortionFallbackId) {
 
         RecordingProtos.CameraInfo.Builder metaBuilder = RecordingProtos.CameraInfo.newBuilder()
                 .setOpticalImageStabilization(mCameraSettingsManager.OISEnabled())
@@ -189,10 +191,18 @@ final class FrameRecords {
 
         if (Build.VERSION.SDK_INT >= 28) {
             float[] distortion = mCameraCharacteristics.get(CameraCharacteristics.LENS_DISTORTION);
-            if ((distortion != null) && (abs(distortion[0]) > 0)) {
+            String distortionFrom = metadataCameraId;
+            // A logical multi-camera may report no distortion (Pixel 6: zeros) although its
+            // physical lens has factory values. Take them from that lens (same intrinsics).
+            if (!hasDistortion(distortion) && distortionFallback != null) {
+                distortion = distortionFallback.get(CameraCharacteristics.LENS_DISTORTION);
+                distortionFrom = distortionFallbackId;
+            }
+            if (hasDistortion(distortion)) {
                 for (float e : distortion) {
                     metaBuilder.addDistortionParams(e);
                 }
+                metaBuilder.setDistortionCameraId(distortionFrom == null ? "" : distortionFrom);
             }
             Integer lensPoseReference = mCameraCharacteristics.get(CameraCharacteristics.LENS_POSE_REFERENCE);
             if (lensPoseReference != null) {
@@ -200,6 +210,18 @@ final class FrameRecords {
             }
         }
         return metaBuilder.build();
+    }
+
+    static boolean hasDistortion(float[] d) {
+        if (d == null) {
+            return false;
+        }
+        for (float e : d) {
+            if (e != 0f) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

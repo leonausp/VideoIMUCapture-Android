@@ -72,6 +72,11 @@ message CameraInfo {
   string metadata_camera_id = 16;        // camera whose characteristics filled this message
   string logical_camera_id = 17;         // the logical camera that was opened
   repeated float lens_focal_lengths = 18; // LENS_INFO_AVAILABLE_FOCAL_LENGTHS of metadata_camera_id
+  // Camera whose LENS_DISTORTION filled distortion_params. Usually metadata_camera_id; differs
+  // when that is a logical camera reporting no distortion (Pixel 6: camera 0 reports zeros),
+  // and the physical lens with the same factory intrinsics (the lens actually recording,
+  // camera 2) supplied it. Empty when no distortion was recorded.
+  string distortion_camera_id = 19;
 }
 
 message VideoFrameToTimestamp{

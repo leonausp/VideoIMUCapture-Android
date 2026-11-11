@@ -59,7 +59,8 @@ ${B}Commands${R}
 ${B}Options${R}
   --tag-size M               measured size of one big square, in METRES (e.g. 0.032)
   --cam-until S              use only the first S seconds (the calm part) for the lens
-  --camchain FILE            lens calibration for 'imucam' (Kalibr camchain.yaml)
+  --camchain FILE|factory    lens calibration for 'imucam' (Kalibr camchain.yaml), or
+                             'factory': the start values in <folder>/cam0/sensor.yaml
   --target FILE              use another Kalibr target file instead (e.g. a checkerboard)
   --imu-yaml FILE            IMU noise values (Kalibr format); default: typical phone values
   --screen WxH               'target': screen resolution (default: the built-in screen)
@@ -113,7 +114,10 @@ while [[ $# -gt 0 ]]; do
         --cam-freq)  need "$@"; CAM_FREQ=$2; shift 2 ;;
         --imu-freq)  need "$@"; IMU_FREQ=$2; shift 2 ;;
         --cam-until) need "$@"; CAM_UNTIL=$2; shift 2 ;;
-        --camchain)  need "$@"; [[ -f $2 ]] || fail "--camchain: file not found: $2"; CAMCHAIN=$(abspath "$2"); shift 2 ;;
+        --camchain)  need "$@"
+                     if [[ $2 == factory ]]; then CAMCHAIN=factory
+                     else [[ -f $2 ]] || fail "--camchain: file not found: $2"; CAMCHAIN=$(abspath "$2"); fi
+                     shift 2 ;;
         --imu-yaml)  need "$@"; [[ -f $2 ]] || fail "--imu-yaml: file not found: $2"; IMU_YAML=$(abspath "$2"); shift 2 ;;
         --target)    need "$@"; [[ -f $2 ]] || fail "--target: file not found: $2"; TARGET=$(abspath "$2"); shift 2 ;;
         --out)       need "$@"; mkdir -p "$2"; OUT="$(cd "$2" && pwd)"; shift 2 ;;
@@ -194,7 +198,7 @@ run_step() {
 
 summary() {   # summary cam|imucam <prefix>
     echo
-    kalibr "python3 /tool/summarize.py $1 /work $2" 2>/dev/null \
+    kalibr "python3 /tool/summarize.py $1 /work $2 /in/cam0/sensor.yaml" 2>/dev/null \
         | sed -e "s/ ✓ / ${GRN}✓${R} /" -e "s/ ! / ${YEL}!${R} /" -e "s/ ✗ / ${RED}✗${R} /" \
         || warn "Could not read the results for the summary; see the report PDF."
 }
@@ -366,7 +370,23 @@ EOT
 
 case $MODE in
     cam)    calibrate_cam ;;
-    imucam) cp "$CAMCHAIN" "$OUT/camchain-in.yaml"; calibrate_imucam camchain-in.yaml ;;
+    imucam)
+        if [[ $CAMCHAIN == factory ]]; then
+            run_step "Lens values from the start values (cam0/sensor.yaml, factory)" \
+                "The EuRoC folder has no usable cam0/sensor.yaml (intrinsics + distortion)." \
+                "python3 -c \"
+import yaml
+t=''.join(l for l in open('/in/cam0/sensor.yaml') if not l.startswith('%'))
+s=yaml.safe_load(t); k=s['intrinsics']; d=(s.get('distortion_coefficients') or [0,0,0,0])[:4]
+assert len(k)==4 and k[0]>0
+yaml.safe_dump({'cam0':{'camera_model':'pinhole','intrinsics':k,'distortion_model':'radtan',
+  'distortion_coeffs':d,'resolution':s['resolution'],'rostopic':'/cam0/image_raw'}},
+  open('camchain-in.yaml','w'), default_flow_style=None)
+\""
+        else
+            cp "$CAMCHAIN" "$OUT/camchain-in.yaml"
+        fi
+        calibrate_imucam camchain-in.yaml ;;
     all)    calibrate_cam; calibrate_imucam all-camchain.yaml ;;
 esac
 rm -f "$OUT/$BAG"

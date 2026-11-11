@@ -1373,12 +1373,33 @@ public class Camera2Proxy {
     }
 
     public void writeCameraInfo() {
+        // Through the logical camera, find the physical lens with the same factory intrinsics:
+        // the lens that records. Used only if the logical camera reports no distortion.
+        String fallbackId = null;
+        CameraCharacteristics fallback = null;
+        if (mLensCharacteristics == null && mCameraCharacteristics != null
+                && Build.VERSION.SDK_INT >= 28) {
+            float[] own = mCameraCharacteristics.get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
+            for (String id : mCameraCharacteristics.getPhysicalCameraIds()) {
+                try {
+                    CameraCharacteristics c = mCameraManager.getCameraCharacteristics(id);
+                    float[] k = c.get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
+                    if (own != null && java.util.Arrays.equals(own, k)) {
+                        fallbackId = id;
+                        fallback = c;
+                        break;
+                    }
+                } catch (CameraAccessException | IllegalArgumentException e) {
+                    Log.w(TAG, "physical camera " + id + ": " + e);
+                }
+            }
+        }
         mRecordingWriter.queueData(FrameRecords.cameraInfo(mCameraSettingsManager,
                 mLensCharacteristics != null ? mLensCharacteristics : mCameraCharacteristics,
                 mFocalLengthHelper, mSwappedDimensions,
                 mVideoLensId != null ? mVideoLensId : FrameRecords.LOGICAL,
                 mVideoLensId != null ? mVideoLensId : mCameraIdStr,
-                mCameraIdStr));
+                mCameraIdStr, fallback, fallbackId));
     }
 
     /**

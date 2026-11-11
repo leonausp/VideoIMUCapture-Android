@@ -1,6 +1,6 @@
 """Short, readable summary of Kalibr's results, with a rating for each number.
 
-    python3 summarize.py cam    <dir> <prefix>    # <prefix>-camchain.yaml, <prefix>-results-cam.txt
+    python3 summarize.py cam    <dir> <prefix> [<sensor.yaml>]   # + start values to compare with
     python3 summarize.py imucam <dir> <prefix>    # <prefix>-camchain-imucam.yaml, -results-imucam.txt
 
 Runs inside the Kalibr image (numpy, PyYAML). Prints plain text; calibrate.sh adds the frame.
@@ -40,7 +40,16 @@ def reprojection(path, pattern):
     return nums
 
 
-def cam(folder, prefix):
+def start_values(path):
+    """Intrinsics from a EuRoC sensor.yaml (its "%YAML:1.0" line isn't standard YAML)."""
+    if not path or not os.path.exists(path):
+        return None
+    text = "".join(l for l in open(path) if not l.startswith("%"))
+    intr = (yaml.safe_load(text) or {}).get("intrinsics")
+    return intr if intr and len(intr) == 4 and intr[0] > 0 else None
+
+
+def cam(folder, prefix, sensor_yaml=None):
     chain = yaml.safe_load(open(os.path.join(folder, prefix + "-camchain.yaml")))["cam0"]
     fu, fv, pu, pv = chain["intrinsics"]
     w, h = chain["resolution"]
@@ -50,6 +59,12 @@ def cam(folder, prefix):
     aspect = abs(fu / fv - 1) * 100
     line("Focal length fx / fy", "%.1f / %.1f px" % (fu, fv), rate(aspect, 1, 3),
          "fx and fy differ by %.1f %%; phone pixels are square" % aspect)
+    start = start_values(sensor_yaml)
+    if start:
+        dev = abs(fu / start[0] - 1) * 100
+        line("Focal vs. start value", "%+.1f %%" % ((fu / start[0] - 1) * 100), rate(dev, 2, 5),
+             "start value %.1f px (factory); far off = the calibration went wrong, "
+             "usually too few tilted views" % start[0])
     off = math.hypot(pu - w / 2, pv - h / 2) / math.hypot(w, h) * 100
     line("Image centre cx / cy", "%.1f / %.1f px" % (pu, pv), rate(off, 3, 6),
          "%.1f %% of the diagonal from the middle" % off)
@@ -93,7 +108,10 @@ def imucam(folder, prefix):
 
 def main():
     mode, folder, prefix = sys.argv[1:4]
-    {"cam": cam, "imucam": imucam}[mode](folder, prefix)
+    if mode == "cam":
+        cam(folder, prefix, sys.argv[4] if len(sys.argv) > 4 else None)
+    else:
+        imucam(folder, prefix)
 
 
 if __name__ == "__main__":
