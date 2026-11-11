@@ -30,9 +30,13 @@ public class RecommendedDefaultsTest {
         assertEquals("1280x960", RecommendedDefaults.VIDEO_SIZE);
         assertTrue(RecommendedDefaults.USE_FULL_SENSOR);
         assertEquals(1.0f, RecommendedDefaults.ZOOM_RATIO, 0f);
-        assertEquals("MANUAL", RecommendedDefaults.EXPOSURE_MODE);
+        // Deliberate difference: the recordings used MANUAL with ISO 1000 (right for that room
+        // only); the default keeps their 5 ms but meters ISO per scene (shutter priority).
+        assertEquals("SHUTTER_PRIORITY", RecommendedDefaults.EXPOSURE_MODE);
         assertEquals(5.0f, RecommendedDefaults.EXPOSURE_MS, 0f);
-        assertEquals(1000, RecommendedDefaults.ISO);
+        // Manual ISO's starting value (the recordings used 1000; in shutter priority, the
+        // default, ISO is metered per scene instead).
+        assertEquals(300, RecommendedDefaults.ISO);
         assertEquals("MANUAL", RecommendedDefaults.FOCUS_MODE);
         assertTrue(RecommendedDefaults.FOCUS_HYPERFOCAL);
         assertFalse(RecommendedDefaults.OIS);

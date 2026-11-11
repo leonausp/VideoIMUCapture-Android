@@ -213,6 +213,17 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
         mVideoLockedRadiometry = PreferenceManager
                 .getDefaultSharedPreferences(mActivity).getBoolean("lock_radiometry",
                         RecommendedDefaults.LOCK_RADIOMETRY);
+        // Shutter priority: freeze the metered light into the chosen exposure time and an ISO
+        // (auto exposure off) for the whole clip. The request swap takes a few frames to reach
+        // the pixels, so the first recorded frame waits for it, as after a pair warm-up.
+        mShutterPriorityLocked = false;
+        if (proxy != null && mActivity.getmCameraSettingsManager() != null
+                && mActivity.getmCameraSettingsManager().isShutterPriority()) {
+            mShutterPriorityLocked = proxy.lockShutterPriority() != null;
+            if (mShutterPriorityLocked) {
+                mVideoStartHoldMs = Math.max(mVideoStartHoldMs, SHUTTER_PRIORITY_SETTLE_MS);
+            }
+        }
         if (proxy != null && mVideoLockedRadiometry) {
             proxy.lockAutoAlgorithms(true);
         }
@@ -232,6 +243,11 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
     private static final long PAIR_CANCEL_SETTLE_MS = 400L;
 
     private long mVideoStartHoldMs = 0L;
+
+    // Shutter priority switches the request from auto to manual exposure at record start; like
+    // the pair warm-up above, the pipeline needs a few frames before the pixels follow.
+    private static final long SHUTTER_PRIORITY_SETTLE_MS = 300L;
+    private boolean mShutterPriorityLocked = false;
 
     /**
      * How long the recording's FIRST FRAME should wait after {@link #beginVideoSession}: zero,
@@ -258,6 +274,10 @@ public class CaptureModeManager implements StillnessTrigger.Listener {
         }
         mVideoOwnsSession = false;
         Camera2Proxy proxy = mActivity.getmCamera2Proxy();
+        if (proxy != null && mShutterPriorityLocked) {
+            proxy.releaseShutterPriority();
+        }
+        mShutterPriorityLocked = false;
         if (proxy != null && mVideoLockedRadiometry) {
             proxy.lockAutoAlgorithms(false);
         }

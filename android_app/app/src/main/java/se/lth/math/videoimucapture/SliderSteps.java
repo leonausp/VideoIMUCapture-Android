@@ -94,6 +94,29 @@ final class SliderSteps {
     }
 
     /** The position closest to value (an off-grid stored value maps to its nearest step). */
+    /**
+     * The next slider value strictly above (dir > 0) or below (dir < 0) {@code value}, or the end
+     * point if there is none. Unlike indexOf()+dir, an off-step value (a typed ISO 300) goes to
+     * its neighbours (320 / 250) instead of first snapping to the nearest step.
+     */
+    float stepFrom(float value, int dir) {
+        double tol = 1e-4 * Math.max(1.0, Math.abs(value));
+        if (dir > 0) {
+            for (int i = 0; i < count(); i++) {
+                if (valueAt(i) > value + tol) {
+                    return valueAt(i);
+                }
+            }
+            return valueAt(count() - 1);
+        }
+        for (int i = count() - 1; i >= 0; i--) {
+            if (valueAt(i) < value - tol) {
+                return valueAt(i);
+            }
+        }
+        return valueAt(0);
+    }
+
     int indexOf(float value) {
         if (list != null) {
             int best = 0;

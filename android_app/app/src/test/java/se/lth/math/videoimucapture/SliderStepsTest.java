@@ -106,4 +106,15 @@ public class SliderStepsTest {
         assertEquals(1f, d.valueAt(0), 0f);
         assertEquals(0, d.indexOf(3f));
     }
+
+    @Test
+    public void stepFromGoesToNeighboursOfAnOffStepValue() {
+        SliderSteps iso = SliderSteps.ofValues(44, 11377, CameraValueSteps.ISO);
+        assertEquals(320f, iso.stepFrom(300, +1), 0f);   // not 400 (snap to 320, then +1)
+        assertEquals(250f, iso.stepFrom(300, -1), 0f);
+        assertEquals(400f, iso.stepFrom(320, +1), 0f);   // on-step value: plain neighbours
+        assertEquals(250f, iso.stepFrom(320, -1), 0f);
+        assertEquals(44f, iso.stepFrom(44, -1), 0f);     // clamps at the ends
+        assertEquals(11377f, iso.stepFrom(11377, +1), 0f);
+    }
 }

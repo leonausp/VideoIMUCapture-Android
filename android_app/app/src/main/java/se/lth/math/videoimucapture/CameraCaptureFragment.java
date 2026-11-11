@@ -188,6 +188,10 @@ public class CameraCaptureFragment extends Fragment
         highlightMode(modes.getMode());
 
         mTorchButton = view.findViewById(R.id.torch_button);
+        if (!BuildConfig.TORCH_UI) {
+            mTorchButton.setVisibility(View.GONE);
+        }
+        setUpExposureControls(view);
         view.findViewById(R.id.gallery_button).setOnClickListener(v -> {
             if (getActivity() != null) {
                 ((CameraCaptureActivity) getActivity()).showRoll(null);
@@ -805,6 +809,7 @@ public class CameraCaptureFragment extends Fragment
         getActivity().runOnUiThread(() -> {
             if (mCaptureResultText != null) {
                 mCaptureResultText.setText(line);
+                refreshExposureControls();
             }
         });
     }
@@ -812,7 +817,228 @@ public class CameraCaptureFragment extends Fragment
     /**
      * Updates the on-screen controls to reflect the current state of the app.
      */
+    // ------------------------------------------------------------------ exposure on the preview
+    //
+    // Two buttons above RECORD (exposure time, ISO) and an adjust bar (- / value / + / AUTO).
+    // They write the same preferences as the settings screen ("exposure", "iso",
+    // "exposure_mode") and apply them to the preview at once. Locked while recording: an exposure
+    // change mid-clip would change the data. ISO + / - means MANUAL; AUTO means shutter priority;
+    // changing the exposure time in an automatic mode switches to shutter priority.
+
+    private com.google.android.material.button.MaterialButton mExposureChip, mIsoChip;
+    private View mExposurePanel;
+    private TextView mPanelValue;
+    private android.widget.Button mPanelAuto;
+    private String mPanelParam = null;   // "exp", "iso" or null (closed)
+
+    private void setUpExposureControls(View view) {
+        mExposureChip = view.findViewById(R.id.exposure_chip);
+        mIsoChip = view.findViewById(R.id.iso_chip);
+        mExposurePanel = view.findViewById(R.id.exposure_panel);
+        mPanelValue = view.findViewById(R.id.panel_value);
+        mPanelAuto = view.findViewById(R.id.panel_auto);
+        mExposureChip.setOnClickListener(v -> togglePanel("exp"));
+        mIsoChip.setOnClickListener(v -> togglePanel("iso"));
+        view.findViewById(R.id.panel_minus).setOnClickListener(v -> stepPanel(-1));
+        view.findViewById(R.id.panel_plus).setOnClickListener(v -> stepPanel(+1));
+        mPanelAuto.setOnClickListener(v -> {
+            prefs().edit().putString("exposure_mode", "SHUTTER_PRIORITY").apply();
+            applyExposure();
+        });
+        mPanelValue.setOnClickListener(v -> typePanelValue());
+    }
+
+    private SharedPreferences prefs() {
+        return PreferenceManager.getDefaultSharedPreferences(requireContext());
+    }
+
+    private void togglePanel(String param) {
+        if (mRecordingEnabled) {
+            android.widget.Toast.makeText(getActivity(), "Exposure is locked while recording",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        mPanelParam = param.equals(mPanelParam) ? null : param;
+        refreshExposureControls();
+    }
+
+    /** Current mode name as stored ("MANUAL", "SHUTTER_PRIORITY", "TOUCH_AUTO", ...). */
+    private String exposureMode() {
+        return prefs().getString("exposure_mode", RecommendedDefaults.EXPOSURE_MODE);
+    }
+
+    private SliderSteps exposureSteps() {
+        CameraSettingsManager m = getmCameraSettingsManager();
+        android.util.Range<Float> r = m == null ? null : m.getExposureRangeMs();
+        return r == null ? null : SliderSteps.ofValues(r.getLower(), r.getUpper(), CameraValueSteps.SHUTTER_MS);
+    }
+
+    private SliderSteps isoSteps() {
+        CameraSettingsManager m = getmCameraSettingsManager();
+        android.util.Range<Integer> r = m == null ? null : m.getIsoRange();
+        return r == null ? null : SliderSteps.ofValues(r.getLower(), r.getUpper(), CameraValueSteps.ISO);
+    }
+
+    /** The ISO the user sees now: manual value, or what shutter priority would use. */
+    private int currentIso() {
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        ShutterPriority.Result r = proxy != null ? proxy.shutterPriorityPreview() : null;
+        if ("SHUTTER_PRIORITY".equals(exposureMode()) && r != null) {
+            return r.iso;
+        }
+        return prefs().getInt("iso", RecommendedDefaults.ISO);
+    }
+
+    private void stepPanel(int dir) {
+        if ("exp".equals(mPanelParam)) {
+            SliderSteps s = exposureSteps();
+            if (s == null) {
+                return;
+            }
+            float now = prefs().getFloat("exposure", RecommendedDefaults.EXPOSURE_MS);
+            setExposureMs(s.stepFrom(now, dir));
+        } else if ("iso".equals(mPanelParam)) {
+            SliderSteps s = isoSteps();
+            if (s == null) {
+                return;
+            }
+            setManualIso(Math.round(s.stepFrom(currentIso(), dir)));
+        }
+    }
+
+    private void setExposureMs(float ms) {
+        SharedPreferences.Editor e = prefs().edit().putFloat("exposure", ms);
+        String mode = exposureMode();
+        if (!"MANUAL".equals(mode) && !"SHUTTER_PRIORITY".equals(mode)) {
+            e.putString("exposure_mode", "SHUTTER_PRIORITY");
+        }
+        e.apply();
+        applyExposure();
+    }
+
+    private void setManualIso(int iso) {
+        prefs().edit().putInt("iso", iso).putString("exposure_mode", "MANUAL").apply();
+        applyExposure();
+    }
+
+    private void applyExposure() {
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        if (proxy != null) {
+            proxy.applySettingsNow();
+        }
+        refreshExposureControls();
+    }
+
+    private void typePanelValue() {
+        if (mPanelParam == null || getActivity() == null) {
+            return;
+        }
+        boolean exp = "exp".equals(mPanelParam);
+        CameraSettingsManager m = getmCameraSettingsManager();
+        android.util.Range<Float> er = m == null ? null : m.getExposureRangeMs();
+        android.util.Range<Integer> ir = m == null ? null : m.getIsoRange();
+        if ((exp && er == null) || (!exp && ir == null)) {
+            return;   // camera not configured yet, or no manual exposure on this camera
+        }
+        float min = exp ? er.getLower() : ir.getLower();
+        float max = exp ? er.getUpper() : ir.getUpper();
+        android.widget.EditText input = new android.widget.EditText(getActivity());
+        input.setInputType(exp
+                ? android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                : android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setText(exp ? String.format(Locale.US, "%.2f",
+                prefs().getFloat("exposure", RecommendedDefaults.EXPOSURE_MS))
+                : String.valueOf(currentIso()));
+        input.setSelectAllOnFocus(true);
+        new android.app.AlertDialog.Builder(getActivity())
+                .setTitle(exp ? "Exposure time (ms)" : "ISO")
+                .setMessage(String.format(Locale.US, exp ? "Range %.3f – %.1f ms" : "Range %.0f – %.0f",
+                        min, max))
+                .setView(input)
+                .setPositiveButton("OK", (d, w) -> {
+                    float v;
+                    try {
+                        v = Float.parseFloat(input.getText().toString().trim().replace(',', '.'));
+                    } catch (NumberFormatException ex) {
+                        return;
+                    }
+                    v = Math.max(min, Math.min(max, v));
+                    if (exp) {
+                        setExposureMs(v);
+                    } else {
+                        setManualIso(Math.round(v));
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+        input.requestFocus();
+    }
+
+    /** Button and bar texts from the stored settings and the live metering. UI thread. */
+    private void refreshExposureControls() {
+        if (mExposureChip == null || getActivity() == null) {
+            return;
+        }
+        String mode = exposureMode();
+        boolean manual = "MANUAL".equals(mode);
+        boolean sp = "SHUTTER_PRIORITY".equals(mode);
+        float ms = prefs().getFloat("exposure", RecommendedDefaults.EXPOSURE_MS);
+        String expText = (manual || sp) ? formatMsShort(ms) : "Exp auto";
+        String isoText;
+        Camera2Proxy proxy = getmCamera2Proxy();
+        ShutterPriority.Result r = (sp && proxy != null) ? proxy.shutterPriorityPreview() : null;
+        if (manual) {
+            isoText = "ISO " + prefs().getInt("iso", RecommendedDefaults.ISO);
+        } else if (sp && r != null) {
+            isoText = "ISO auto " + r.iso;
+            if (r.shortened) {
+                expText = formatMsShort(r.exposureNs / 1e6f) + " ☀";
+            } else if (r.underexposedStops > 0.05) {
+                isoText += String.format(Locale.US, "  ▼%.1f", r.underexposedStops);
+            }
+        } else if (sp) {
+            isoText = mRecordingEnabled ? "ISO locked" : "ISO auto";
+        } else {
+            isoText = "ISO auto";
+        }
+        mExposureChip.setText(expText);
+        mIsoChip.setText(isoText);
+        boolean enabled = !mRecordingEnabled;
+        mExposureChip.setAlpha(enabled ? 1f : 0.5f);
+        mIsoChip.setAlpha(enabled ? 1f : 0.5f);
+        if (!enabled) {
+            mPanelParam = null;
+        }
+        mExposurePanel.setVisibility(mPanelParam == null ? View.GONE : View.VISIBLE);
+        if ("exp".equals(mPanelParam)) {
+            mPanelValue.setText(formatMs(ms));
+            mPanelAuto.setVisibility(View.GONE);
+        } else if ("iso".equals(mPanelParam)) {
+            mPanelValue.setText(sp ? "auto " + currentIso() : String.valueOf(currentIso()));
+            mPanelAuto.setVisibility(View.VISIBLE);
+            mPanelAuto.setAlpha(sp ? 1f : 0.6f);
+        }
+    }
+
+    /** Compact form for the stacked corner buttons: "5.00 ms". */
+    private static String formatMsShort(float ms) {
+        return ms >= 10 ? String.format(Locale.US, "%.1f ms", ms) : String.format(Locale.US, "%.2f ms", ms);
+    }
+
+    /** "5.0 ms", plus the shutter fraction where it is a round one ("1/200 s"). */
+    private static String formatMs(float ms) {
+        String s = ms >= 10 ? String.format(Locale.US, "%.1f ms", ms) : String.format(Locale.US, "%.2f ms", ms);
+        if (ms > 0 && ms < 1000) {
+            float denom = 1000f / ms;
+            if (Math.abs(denom - Math.round(denom)) < 0.02f * denom) {
+                s += "  (1/" + Math.round(denom) + " s)";
+            }
+        }
+        return s;
+    }
+
     public void updateControls() {
+        refreshExposureControls();
         if (mRecordingButton != null) {
             int id = mRecordingEnabled ?
                     R.drawable.ic_stop_record : R.drawable.ic_start_record;

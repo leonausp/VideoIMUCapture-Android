@@ -35,6 +35,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class Camera2Proxy {
@@ -610,6 +611,90 @@ public class Camera2Proxy {
             mManualExposureHeld = true;
         } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
             Log.w(TAG, "Could not set manual exposure: " + e);
+        }
+    }
+
+    // --- Shutter priority (fixed maximum exposure, ISO from auto exposure's metering) ---
+
+    private volatile boolean mShutterPriorityLocked = false;
+
+    /**
+     * What shutter priority would record right now, from the latest AUTO-exposed result (the
+     * preview meters with auto exposure). Null when not in shutter priority, while it is locked
+     * for a recording, or before a metered result exists.
+     */
+    public ShutterPriority.Result shutterPriorityPreview() {
+        if (mCameraSettingsManager == null || !mCameraSettingsManager.isShutterPriority()
+                || mShutterPriorityLocked) {
+            return null;
+        }
+        TotalCaptureResult r = mLastResult;
+        if (r == null) {
+            return null;
+        }
+        Long e = r.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+        Integer iso = r.get(CaptureResult.SENSOR_SENSITIVITY);
+        Integer ae = r.get(CaptureResult.CONTROL_AE_MODE);
+        if (e == null || iso == null || ae == null || ae == CameraMetadata.CONTROL_AE_MODE_OFF) {
+            return null;   // not a metered (auto) result
+        }
+        Range<Long> er = getExposureTimeRange();
+        Range<Integer> ir = getSensitivityRange();
+        if (er == null || ir == null) {
+            return null;
+        }
+        long target = Math.min(mCameraSettingsManager.getTargetExposureNs(), er.getUpper());
+        return ShutterPriority.compute(e, iso, target, ir.getLower(), ir.getUpper(), er.getLower());
+    }
+
+    /**
+     * Record start in shutter priority: freeze the metered light into a fixed exposure and ISO
+     * (auto exposure off, frame duration pinned to 30 fps). Returns the values set, or null if
+     * there was nothing to meter from (the recording then runs with auto exposure).
+     */
+    public ShutterPriority.Result lockShutterPriority() {
+        ShutterPriority.Result r = shutterPriorityPreview();
+        if (r == null) {
+            Log.w(TAG, "shutter priority: no metered result to lock; auto exposure stays on");
+            return null;
+        }
+        setManualExposure(r.exposureNs, r.iso);
+        mShutterPriorityLocked = true;
+        Log.i(TAG, String.format(Locale.US,
+                "shutter priority locked: %.3f ms, ISO %d%s%s", r.exposureNs / 1e6, r.iso,
+                r.shortened ? " (shortened: bright scene)" : "",
+                r.underexposedStops > 0 ? String.format(Locale.US,
+                        " (%.1f stops under: dark scene)", r.underexposedStops) : ""));
+        return r;
+    }
+
+    /** Record end: back to auto exposure as the light meter. */
+    public void releaseShutterPriority() {
+        if (mShutterPriorityLocked) {
+            clearManualExposure();
+            mShutterPriorityLocked = false;
+        }
+    }
+
+    /**
+     * Apply the stored settings to the running preview at once (used by the on-screen exposure
+     * controls). Not during a recording: an exposure change mid-clip would change the data.
+     */
+    public void applySettingsNow() {
+        if (mCaptureSession == null || mPreviewRequestBuilder == null || mRecordingMetadata) {
+            return;
+        }
+        try {
+            if (mCameraSettingsManager.isManualExposure()) {
+                // MANUAL: exposure/ISO are set by updateRequestBuilder; the pinned frame duration
+                // of a previous shutter-priority/blur hold must not linger.
+                mManualExposureHeld = false;
+            }
+            mPreviewRequestBuilder.set(CaptureRequest.SENSOR_FRAME_DURATION, null);
+            mCameraSettingsManager.updateRequestBuilder(mPreviewRequestBuilder);
+            reissuePreview();
+        } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
+            Log.w(TAG, "Could not apply settings: " + e);
         }
     }
 

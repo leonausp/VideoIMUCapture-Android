@@ -10,6 +10,9 @@
     <string name="tests_toolbar">TESTS</string>
     <string name="roll_toolbar">Recordings</string>
     <string name="gallery_description">Recordings</string>
+    <string name="exposure_minus">−</string>
+    <string name="exposure_plus">+</string>
+    <string name="exposure_auto">AUTO</string>
     <string name="back_toolbar">Back</string>
 
     <string name="record_description">Toggle video recording</string>
