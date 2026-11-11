@@ -728,6 +728,41 @@ public class Camera2Proxy {
         return mFocusLocked;
     }
 
+    private final java.util.Map<String, Boolean> mFixedFocusById = new java.util.HashMap<>();
+
+    /**
+     * Whether the lens delivering the frames has no focus (minimum focus distance 0). Through a
+     * logical camera that is the ACTIVE physical lens, not the logical camera: the Pixel 6's
+     * logical camera can focus (its main lens can), but at zoom 0.67 the frames come from the
+     * fixed-focus ultrawide. A standalone camera (Galaxy S21 ultrawide) answers for itself.
+     */
+    public boolean isRecordingLensFixedFocus() {
+        if (mCameraCharacteristics == null) {
+            return false;
+        }
+        String id = null;
+        TotalCaptureResult r = mLastResult;
+        if (r != null && Build.VERSION.SDK_INT >= 29) {
+            id = r.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+        }
+        if (id == null) {
+            Float m = mCameraCharacteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
+            return m != null && m == 0f;
+        }
+        Boolean cached = mFixedFocusById.get(id);
+        if (cached == null) {
+            try {
+                Float m = mCameraManager.getCameraCharacteristics(id)
+                        .get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
+                cached = m != null && m == 0f;
+            } catch (CameraAccessException | IllegalArgumentException e) {
+                cached = false;
+            }
+            mFixedFocusById.put(id, cached);
+        }
+        return cached;
+    }
+
     /** Where the lens is now (diopters, the phone's scale), from the last result; or null. */
     public Float getLastFocusDistance() {
         TotalCaptureResult r = mLastResult;

@@ -921,6 +921,10 @@ public class CameraCaptureFragment extends Fragment
 
     /** Focus range in diopters [0, closest], or null for a fixed-focus or unknown lens. */
     private Float focusMax() {
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        if (proxy != null && proxy.isRecordingLensFixedFocus()) {
+            return null;   // e.g. the Pixel's ultrawide behind its logical camera at zoom 0.67
+        }
         CameraSettingsManager m = getmCameraSettingsManager();
         Float max = m == null ? null : m.getMinFocusDistance();
         return (max == null || max <= 0f) ? null : max;
