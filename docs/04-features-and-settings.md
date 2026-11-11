@@ -68,6 +68,13 @@ brightness changes with every viewpoint (bad for tracking), and it only reaches 
   the value to type an exact number. For ISO there's also **AUTO**. Changes apply to the preview
   immediately, and they're the same settings as on the settings screen.
 - **Locked while recording,** so the exposure can't change mid-clip.
+- **LOCK** (in the exposure and ISO bars, shutter priority): freezes exposure and ISO **now**, so the
+  preview runs with exactly the recording's values (brightness, noise, light flicker). RECORD then
+  uses them. The buttons read "… locked"; **UNLOCK**, or any change to exposure or ISO, releases it.
+- **Preview brightness:** the preview normally meters with automatic exposure. When even the
+  maximum ISO is not enough at the chosen exposure ("▼ x" on the ISO button), the recording will be
+  darker than the metered preview; the preview display is then dimmed by the same amount, so what
+  you see matches what will be recorded. This only affects the screen, never the video.
 
 The **default mode is shutter priority**:
 - **Fixed exposure time:** 5 ms, chosen for little motion blur.

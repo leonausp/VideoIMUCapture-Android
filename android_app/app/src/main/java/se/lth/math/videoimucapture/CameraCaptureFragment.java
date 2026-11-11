@@ -842,7 +842,7 @@ public class CameraCaptureFragment extends Fragment
     private com.google.android.material.button.MaterialButton mExposureChip, mIsoChip, mFocusChip;
     private View mExposurePanel;
     private TextView mPanelValue;
-    private android.widget.Button mPanelAuto, mPanelAf;
+    private android.widget.Button mPanelAuto, mPanelAf, mPanelLock;
     private String mPanelParam = null;   // "exp", "iso" or null (closed)
 
     private void setUpExposureControls(View view) {
@@ -850,6 +850,8 @@ public class CameraCaptureFragment extends Fragment
         mPanelAf = view.findViewById(R.id.panel_af);
         mFocusChip.setOnClickListener(v -> togglePanel("focus"));
         mPanelAf.setOnClickListener(v -> setFocusMode("CONTINUOUS_AUTO"));
+        mPanelLock = view.findViewById(R.id.panel_lock);
+        mPanelLock.setOnClickListener(v -> toggleExposureLock());
         mExposureChip = view.findViewById(R.id.exposure_chip);
         mIsoChip = view.findViewById(R.id.iso_chip);
         mExposurePanel = view.findViewById(R.id.exposure_panel);
@@ -864,6 +866,7 @@ public class CameraCaptureFragment extends Fragment
                 setFocusMode("TOUCH_AUTO");   // the button reads TAP in the focus bar
                 return;
             }
+            releaseExposureLockForChange();
             prefs().edit().putString("exposure_mode", "SHUTTER_PRIORITY").apply();
             applyExposure();
         });
@@ -1014,7 +1017,31 @@ public class CameraCaptureFragment extends Fragment
         }
     }
 
+    /** LOCK / UNLOCK in the exposure and ISO bars. */
+    private void toggleExposureLock() {
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        if (proxy == null) {
+            return;
+        }
+        if (proxy.getUserExposureLock() != null) {
+            proxy.releaseUserExposureLock();
+        } else if (proxy.lockUserExposure() == null) {
+            android.widget.Toast.makeText(getActivity(), "Nothing to lock yet: wait for the light meter",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }
+        refreshExposureControls();
+    }
+
+    /** Any change to exposure or ISO first releases a lock made with LOCK. */
+    private void releaseExposureLockForChange() {
+        Camera2Proxy proxy = getActivity() != null ? getmCamera2Proxy() : null;
+        if (proxy != null && proxy.getUserExposureLock() != null) {
+            proxy.releaseUserExposureLock();
+        }
+    }
+
     private void setExposureMs(float ms) {
+        releaseExposureLockForChange();
         SharedPreferences.Editor e = prefs().edit().putFloat("exposure", ms);
         String mode = exposureMode();
         if (!"MANUAL".equals(mode) && !"SHUTTER_PRIORITY".equals(mode)) {
@@ -1025,6 +1052,7 @@ public class CameraCaptureFragment extends Fragment
     }
 
     private void setManualIso(int iso) {
+        releaseExposureLockForChange();
         prefs().edit().putInt("iso", iso).putString("exposure_mode", "MANUAL").apply();
         applyExposure();
     }
@@ -1113,6 +1141,24 @@ public class CameraCaptureFragment extends Fragment
         } else {
             isoText = "ISO auto";
         }
+        Camera2Proxy lockProxy = getmCamera2Proxy();
+        ShutterPriority.Result held = lockProxy != null ? lockProxy.getUserExposureLock() : null;
+        if (held != null) {
+            // Locked before recording: the preview now runs with exactly these values.
+            expText = formatMsShort(held.exposureNs / 1e6f) + " locked";
+            isoText = "ISO " + held.iso + " locked";
+        }
+        // Preview brightness as it will be recorded: when even the maximum ISO is not enough at
+        // the chosen exposure, the recording is darker by underexposedStops. Dim the DISPLAY by
+        // that much (2^-stops in light, ^(1/2.2) for the display's gamma). Not while recording
+        // or locked: then the preview already shows the real exposure.
+        float dimAlpha = 0f;
+        if (!mRecordingEnabled && held == null && sp && r != null && r.underexposedStops > 0.05) {
+            dimAlpha = 1f - (float) Math.pow(Math.pow(2, -r.underexposedStops), 1 / 2.2);
+        }
+        if (mRenderer != null) {
+            mRenderer.setPreviewDim(dimAlpha);
+        }
         mExposureChip.setText(expText);
         mIsoChip.setText(isoText);
         boolean enabled = !mRecordingEnabled;
@@ -1134,6 +1180,11 @@ public class CameraCaptureFragment extends Fragment
         }
         mExposurePanel.setVisibility(mPanelParam == null ? View.GONE : View.VISIBLE);
         mPanelAf.setVisibility("focus".equals(mPanelParam) ? View.VISIBLE : View.GONE);
+        // LOCK: freeze exposure and ISO now, so the preview shows exactly what will be recorded.
+        boolean lockable = sp && ("exp".equals(mPanelParam) || "iso".equals(mPanelParam));
+        mPanelLock.setVisibility(lockable || held != null && mPanelParam != null
+                && !"focus".equals(mPanelParam) ? View.VISIBLE : View.GONE);
+        mPanelLock.setText(held != null ? R.string.exposure_unlock : R.string.exposure_lock);
         mPanelAuto.setText("focus".equals(mPanelParam) ? R.string.focus_tap : R.string.exposure_auto);
         if ("exp".equals(mPanelParam)) {
             mPanelValue.setText(formatMs(ms));
@@ -1364,6 +1415,22 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
 
     private FullFrameRect mFullScreen;
 
+    // Display-only dimming: drawn over the preview AFTER the frame, in this (screen) GL context.
+    // The encoder draws the same texture in its own context and shader, so the recording is
+    // never affected. Used to show, before RECORD, how much darker the locked 5 ms will be when
+    // the ISO is already at its maximum.
+    private volatile float mDimAlpha = 0f;
+    private se.lth.math.videoimucapture.gles.FlatShadedProgram mDimProgram;
+    private final se.lth.math.videoimucapture.gles.Drawable2d mDimRect =
+            new se.lth.math.videoimucapture.gles.Drawable2d(
+                    se.lth.math.videoimucapture.gles.Drawable2d.Prefab.FULL_RECTANGLE);
+    private final float[] mDimColor = new float[]{0f, 0f, 0f, 0f};
+
+    /** 0 = no dimming, 1 = black. Any thread. */
+    public void setPreviewDim(float alpha) {
+        mDimAlpha = Math.max(0f, Math.min(0.95f, alpha));
+    }
+
     private final float[] mSTMatrix = new float[16];
     private int mTextureId;
 
@@ -1498,6 +1565,7 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
                 new Texture2dProgram(Texture2dProgram.ProgramType.TEXTURE_EXT));
 
         mTextureId = mFullScreen.createTextureObject();
+        mDimProgram = new se.lth.math.videoimucapture.gles.FlatShadedProgram();
 
         // Create a SurfaceTexture, with an external texture, in this EGL context.  We don't
         // have a Looper in this thread -- GLSurfaceView doesn't create one -- so the frame
@@ -1556,6 +1624,16 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
         // Draw the video frame.
         mSurfaceTexture.getTransformMatrix(mSTMatrix);
         mFullScreen.drawFrame(mTextureId, mSTMatrix);
+        float dim = mDimAlpha;
+        if (dim > 0.01f && mDimProgram != null) {
+            mDimColor[3] = dim;
+            GLES20.glEnable(GLES20.GL_BLEND);
+            GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+            mDimProgram.draw(se.lth.math.videoimucapture.gles.GlUtil.IDENTITY_MATRIX, mDimColor,
+                    mDimRect.getVertexArray(), 0, mDimRect.getVertexCount(),
+                    mDimRect.getCoordsPerVertex(), mDimRect.getVertexStride());
+            GLES20.glDisable(GLES20.GL_BLEND);
+        }
 
         // Draw a flashing box if we're recording.  This only appears on screen.
         showBox = (mRecordingStatus == RECORDING_ON);
