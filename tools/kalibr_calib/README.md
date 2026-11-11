@@ -23,19 +23,25 @@ tools/kalibr_calib/calibrate.sh target [--screen 1920x1080]   # -> kalibr_target
 #    outermost black edge to the outermost black edge (the small corner squares):
 #    6 columns: tag size = width / 8.1 (check: 4 rows, height / 5.5). That is --tag-size [m].
 
-# 2. Camera intrinsics (pinhole-radtan), Kalibr uses 5 images/s
+# 2. ONE recording for everything (recommended): first ~30 s calm, then ~40 s brisk
+tools/kalibr_calib/calibrate.sh all    <euroc_dir> --tag-size 0.031 --cam-until 30
+#    intrinsics from the calm part, then camera-IMU with them, same recording and target
+#    -> <euroc_dir>/../kalibr_all/all-camchain.yaml + all-camchain-imucam.yaml (+ reports)
+
+# Or the two steps separately (e.g. reusing intrinsics from another tool):
+# 2a. Camera intrinsics (pinhole-radtan), Kalibr uses 5 images/s
 tools/kalibr_calib/calibrate.sh cam    <euroc_dir> --tag-size 0.031
 #    -> <euroc_dir>/../kalibr_cam/cam-camchain.yaml (+ report PDF)
 
-# 3. Camera–IMU extrinsics + time offset, 15 images/s
+# 2b. Camera–IMU extrinsics + time offset, 15 images/s
 tools/kalibr_calib/calibrate.sh imucam <euroc_dir> --tag-size 0.031 \
     --camchain <...>/kalibr_cam/cam-camchain.yaml [--imu-yaml allan.yaml]
 #    -> <euroc_dir>/../kalibr_imucam/imucam-camchain-imucam.yaml (T_cam_imu, timeshift_cam_imu)
 ```
 
 Options: `--cols/--rows` (AprilGrid, default 6×4: fits a laptop screen or A4 landscape),
-`--target FILE` (any Kalibr target yaml, e.g. a checkerboard), `--freq` (images per second Kalibr
-uses), `--out DIR`, `--imu-yaml FILE` (IMU noise, Kalibr format). Without `--imu-yaml` the IMU
+`--target FILE` (any Kalibr target yaml, e.g. a checkerboard), `--cam-until S` (intrinsics from the
+first S seconds only), `--cam-freq`/`--imu-freq` (images per second Kalibr uses, 5/15), `--out DIR`, `--imu-yaml FILE` (IMU noise, Kalibr format). Without `--imu-yaml` the IMU
 noise values are marked placeholders (typical phone values, inflated); replace them with an
 Allan-variance result.
 
@@ -54,10 +60,12 @@ for both), then add the timeshift to the image times (t_imu = t_cam + shift).
 ## Recording tips
 
 - Same settings as for SLAM: lens, resolution, focus, OIS/EIS off.
-- **cam:** ~1 min, slow, target in every part of the image, especially corners; tilt up to ~45°.
-- **imucam:** ~1 min, target static and always in view, good light, short exposure; rotate and
-  translate the phone briskly around all three axes. Repeat 2–3× and compare the timeshift
-  (should agree to ~1 ms).
+- **One recording (`all`), ~70 s, target static, good light, exposure 2–3 ms:**
+  - **0–30 s calm:** move the phone slowly so the grid visits every part of the image, especially
+    the corners; tilt up to ~45°.
+  - **30–70 s brisk:** rotate and translate the phone around all three axes; partial views of the
+    grid are fine (AprilGrid), losing it completely is not.
+- Repeat 2–3× and compare the timeshift (should agree to ~1 ms).
 
 ## Notes
 

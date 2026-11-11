@@ -7,13 +7,17 @@
 #       AprilGrid as target.png (for showing full screen: F11 / slideshow) and target.pdf (for
 #       printing). Then MEASURE from outermost black edge to outermost black edge (the small corner
 #       squares) and divide as printed (6 columns: width / 8.1): that is --tag-size in metres.
-#   calibrate.sh cam    <euroc_dir> --tag-size M [--cols 6 --rows 4] [--freq 5] [--out DIR]
+#   calibrate.sh all    <euroc_dir> --tag-size M [--cam-until S]       <- ONE recording, both steps
+#       intrinsics, then camera-IMU with them      -> DIR/all-camchain.yaml, all-camchain-imucam.yaml
+#       Record: first ~30 s calm (target in every part of the image), then ~40 s brisk motion on
+#       all axes; --cam-until 30 makes the intrinsics use only the calm part.
+#   calibrate.sh cam    <euroc_dir> --tag-size M [--cols 6 --rows 4] [--cam-until S] [--out DIR]
 #       camera intrinsics (pinhole-radtan)          -> DIR/cam-camchain.yaml
-#   calibrate.sh imucam <euroc_dir> --tag-size M --camchain FILE [--freq 15] [--out DIR]
+#   calibrate.sh imucam <euroc_dir> --tag-size M --camchain FILE [--out DIR]
 #       camera-IMU extrinsics + time offset          -> DIR/imucam-camchain-imucam.yaml
 #
 # <euroc_dir> is the folder holding cam0/ and imu0/ (EuRoC's mav0/). DIR defaults to
-# <euroc_dir>/../kalibr_<mode>. --freq is how many images per second Kalibr uses.
+# <euroc_dir>/../kalibr_<mode>. --cam-freq (5) / --imu-freq (15): images per second Kalibr uses.
 # Target: by default an AprilGrid (--tag-size, --cols, --rows). --target FILE uses any Kalibr
 # target yaml instead (e.g. an existing checkerboard); then --tag-size is not needed.
 # IMU noise: pass --imu-yaml FILE (Kalibr format, e.g. from an Allan-variance run); without it
@@ -24,11 +28,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KALIBR_COMMIT=$(sed -n 's/^KALIBR_COMMIT=\([0-9a-f]*\).*/\1/p' "$HERE/build.sh")
 IMAGE=${KALIBR_IMAGE:-zf-kalibr:${KALIBR_COMMIT:0:7}}
 
-usage() { sed -n '2,23p' "$0"; exit "${1:-0}"; }
+usage() { sed -n '2,27p' "$0"; exit "${1:-0}"; }
 abspath() { echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; }
 [[ $# -ge 1 ]] || usage 1
 MODE=$1; shift
-case $MODE in target|cam|imucam) ;; -h|--help) usage 0 ;; *) usage 1 ;; esac
+case $MODE in target|cam|imucam|all) ;; -h|--help) usage 0 ;; *) usage 1 ;; esac
 IN=""
 if [[ $MODE != target ]]; then
     [[ $# -ge 1 && -d "$1" ]] || { echo "missing <euroc_dir>" >&2; usage 1; }
@@ -38,14 +42,16 @@ if [[ $MODE != target ]]; then
         || { echo "$IN: expected cam0/data/*.png and imu0/data.csv" >&2; exit 1; }
 fi
 
-SCREEN=1920x1080 TAG_SIZE="" COLS=6 ROWS=4 FREQ="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
+SCREEN=1920x1080 TAG_SIZE="" COLS=6 ROWS=4 CAM_FREQ="" IMU_FREQ="" CAM_UNTIL="" CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --tag-size) TAG_SIZE=$2; shift 2 ;;
         --cols)     COLS=$2; shift 2 ;;
         --rows)     ROWS=$2; shift 2 ;;
         --screen)   SCREEN=$2; shift 2 ;;
-        --freq)     FREQ=$2; shift 2 ;;
+        --cam-freq) CAM_FREQ=$2; shift 2 ;;
+        --imu-freq) IMU_FREQ=$2; shift 2 ;;
+        --cam-until) CAM_UNTIL=$2; shift 2 ;;
         --camchain) CAMCHAIN=$(abspath "$2"); shift 2 ;;
         --imu-yaml) IMU_YAML=$(abspath "$2"); shift 2 ;;
         --target)   TARGET=$(abspath "$2"); shift 2 ;;
@@ -95,23 +101,28 @@ if [[ $MODE == target ]]; then
 fi
 
 # kalibr_bagcreater wants <dir>/cam0/<t_ns>.png and <dir>/imu0.csv.
-STAGE="rm -rf stage && mkdir stage && ln -s /in/cam0/data stage/cam0 && cp /in/imu0/data.csv stage/imu0.csv \
-       && rosrun kalibr kalibr_bagcreater --folder stage --output-bag $MODE.bag"
+BAG=$MODE.bag
+make_bag() {
+    echo "rm -rf stage && mkdir stage && ln -s /in/cam0/data stage/cam0 && cp /in/imu0/data.csv stage/imu0.csv \
+          && rosrun kalibr kalibr_bagcreater --folder stage --output-bag $BAG"
+}
 
-if [[ $MODE == cam ]]; then
-    kalibr "$STAGE && rosrun kalibr kalibr_calibrate_cameras --bag $MODE.bag --bag-freq ${FREQ:-5} \
+calibrate_cam() {   # intrinsics; with --cam-until S only the first S seconds (the calm part)
+    local range=""
+    [[ -n "$CAM_UNTIL" ]] && range="--bag-from-to 0 $CAM_UNTIL"
+    kalibr "rosrun kalibr kalibr_calibrate_cameras --bag $BAG --bag-freq ${CAM_FREQ:-5} $range \
         --target target.yaml --models pinhole-radtan --topics /cam0/image_raw --dont-show-report"
-    echo "result: $OUT/cam-camchain.yaml  (report: cam-report-cam.pdf, cam-results-cam.txt)"
-else
-    [[ -f "$CAMCHAIN" ]] || { echo "imucam needs --camchain <cam-camchain.yaml from the cam step>" >&2; exit 1; }
-    cp "$CAMCHAIN" "$OUT/camchain-in.yaml"
-    RATE=$(awk -F, 'NR>1{t[++n]=$1} END{printf "%.1f", 1e9*(n-1)/(t[n]-t[1])}' "$IN/imu0/data.csv")
+}
+
+calibrate_imucam() {   # $1: camchain file inside OUT
+    local rate
+    rate=$(awk -F, 'NR>1{t[++n]=$1} END{printf "%.1f", 1e9*(n-1)/(t[n]-t[1])}' "$IN/imu0/data.csv")
     if [[ -n "$IMU_YAML" ]]; then
-        sed -e "s#^rostopic:.*#rostopic: /imu0#" -e "s#^update_rate:.*#update_rate: $RATE#" "$IMU_YAML" > "$OUT/imu.yaml"
+        sed -e "s#^rostopic:.*#rostopic: /imu0#" -e "s#^update_rate:.*#update_rate: $rate#" "$IMU_YAML" > "$OUT/imu.yaml"
     else
         cat > "$OUT/imu.yaml" <<EOT
 rostopic: /imu0
-update_rate: $RATE
+update_rate: $rate
 # PLACEHOLDERS: typical phone values, inflated. Replace with an Allan-variance result (--imu-yaml).
 accelerometer_noise_density: 2.0e-3   # m/s^2/sqrt(Hz)
 accelerometer_random_walk:   4.0e-4   # m/s^3/sqrt(Hz)
@@ -119,7 +130,23 @@ gyroscope_noise_density:     2.0e-4   # rad/s/sqrt(Hz)
 gyroscope_random_walk:       4.0e-5   # rad/s^2/sqrt(Hz)
 EOT
     fi
-    kalibr "$STAGE && rosrun kalibr kalibr_calibrate_imu_camera --bag $MODE.bag --bag-freq ${FREQ:-15} \
-        --target target.yaml --cams camchain-in.yaml --imu imu.yaml --dont-show-report"
-    echo "result: $OUT/imucam-camchain-imucam.yaml  (report: imucam-report-imucam.pdf)"
-fi
+    kalibr "rosrun kalibr kalibr_calibrate_imu_camera --bag $BAG --bag-freq ${IMU_FREQ:-15} \
+        --target target.yaml --cams $1 --imu imu.yaml --dont-show-report"
+}
+
+kalibr "$(make_bag)"
+case $MODE in
+    cam)
+        calibrate_cam
+        echo "result: $OUT/cam-camchain.yaml  (report: cam-report-cam.pdf)" ;;
+    imucam)
+        [[ -f "$CAMCHAIN" ]] || { echo "imucam needs --camchain <a Kalibr camchain.yaml>" >&2; exit 1; }
+        cp "$CAMCHAIN" "$OUT/camchain-in.yaml"
+        calibrate_imucam camchain-in.yaml
+        echo "result: $OUT/imucam-camchain-imucam.yaml  (report: imucam-report-imucam.pdf)" ;;
+    all)
+        calibrate_cam
+        calibrate_imucam all-camchain.yaml
+        echo "intrinsics: $OUT/all-camchain.yaml  (report: all-report-cam.pdf)"
+        echo "camera-IMU: $OUT/all-camchain-imucam.yaml  (report: all-report-imucam.pdf)" ;;
+esac
