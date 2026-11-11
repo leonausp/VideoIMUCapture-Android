@@ -93,9 +93,12 @@ The screen has a **basic section** at the top:
 - **Zoom ratio** (below 1 = wide lens);
 - **Show expert settings**, a switch that reveals all the categories below (lens, video size,
   stabilisation, exposure mode, recording);
-- **Reset to recommended settings**, which puts everything back to the recommended values for
-  VIO: main lens, Video only, 1280×960, shutter priority at 5 ms (manual ISO starts at 300), manual
-  tap to focus (locked when recording), OIS off with OIS data on, no EIS or distortion correction.
+- **Reset to recommended settings**, which puts everything back to the recommended values for VIO,
+  **as far as this camera supports them**: main camera, Video only, 1280×960 (or, where the camera
+  doesn't offer it, the nearest 4:3 size, e.g. 1440×1080 on the Galaxy S21), 5 ms with automatic ISO
+  (shutter priority; plain auto exposure without manual exposure), tap to focus locked when
+  recording (a fixed-focus lens has none), OIS off with OIS data on, no EIS or distortion
+  correction. Its description on the settings screen says what it gives on **this** phone.
 
 These defaults live in one place, `RecommendedDefaults.java`. A unit test checks them, and also
 checks that `settings.xml` declares the same defaults.

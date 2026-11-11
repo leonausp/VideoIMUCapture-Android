@@ -55,7 +55,7 @@
         <Preference
             app:key="reset_defaults"
             app:title="Reset to recommended settings"
-            app:summary="Main lens, video only, 1280x960, 5 ms with automatic ISO (shutter priority), tap to focus, locked when recording, OIS off with OIS data on." />
+            app:summary="Recommended for VIO on this camera (the details are filled in when the screen opens)." />
     </PreferenceCategory>
 
     <PreferenceCategory

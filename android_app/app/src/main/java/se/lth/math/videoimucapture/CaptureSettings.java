@@ -85,6 +85,10 @@ public class CaptureSettings extends PreferenceFragmentCompat {
             });
         }
         androidx.preference.Preference reset = findPreference("reset_defaults");
+        if (reset != null && cameraSettingsManager != null) {
+            // Not a fixed text: what the reset gives depends on what this camera offers.
+            reset.setSummary(cameraSettingsManager.describeRecommended());
+        }
         if (reset != null) {
             reset.setOnPreferenceClickListener(pref -> {
                 confirmReset();
