@@ -85,6 +85,23 @@ tools/kalibr_calib/calibrate.sh imucam data/vid_<date> --tag-size 0.03 --camchai
 - `--tag-size` is your measured value in metres (paper at 100 %: `0.03`).
 - `--camchain factory` uses the phone's lens values (the start values the export writes).
 
+Before Kalibr starts, the script **checks the lens distortion on the grid** (under a minute). A
+flat grid seen through a lens without distortion is mapped exactly by a homography; what remains
+in the views that reach the image corners is distortion. Measured on our phones:
+
+| Lens | Bend in the corners: raw → corrected | Verdict |
+|---|---|---|
+| Pixel 6 main | 0.31 → 0.26 px (factory values) | factory values fit |
+| Pixel 6 ultrawide | 1.58 → 0.60 px (factory values) | factory values fit |
+| Pixel 9 Pro ultrawide | 0.29 px | already straight (the phone corrects it) |
+| Galaxy S21 main | 0.36 px, no values | already straight |
+| Galaxy S21 ultrawide | 1.27 → 0.65 px (**fitted**: k1 +0.037, k2 −0.021) | distorted, phone gives no values |
+
+When the grid is bent and the phone's values don't straighten it, k1 and k2 are fitted with the
+phone's focal length and image centre held fixed (those are reliable; a full lens calibration
+often isn't). `distortion-check.txt` in the results says what was decided; `--no-distortion-check`
+uses the phone's values unchecked.
+
 The script converts the recording (with [`tools/pb3_export`](../tools/pb3_export/README.md),
 timestamps at mid-exposure) and runs Kalibr's camera–IMU calibration (5–10 minutes). Kalibr's own
 output goes to `kalibr.log`; the terminal shows the steps and a rated summary:

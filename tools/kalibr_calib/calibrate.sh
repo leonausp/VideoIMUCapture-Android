@@ -62,7 +62,9 @@ ${B}Options${R}
   --tag-size M               measured size of one big square, in METRES (e.g. 0.032)
   --cam-until S              use only the first S seconds (the calm part) for the lens
   --camchain FILE|factory    lens calibration for 'imucam' (Kalibr camchain.yaml), or
-                             'factory': the start values in <folder>/cam0/sensor.yaml
+                             'factory': the start values in <folder>/cam0/sensor.yaml;
+                             their distortion is checked on the grid and fitted if needed
+  --no-distortion-check      'factory': use the phone's distortion as it is, unchecked
   --target FILE              use another Kalibr target file instead (e.g. a checkerboard)
   --imu-yaml FILE            IMU noise values (Kalibr format); default: typical phone values
   --screen WxH               'target': screen resolution (default: the built-in screen)
@@ -104,7 +106,7 @@ if [[ $MODE != target ]]; then
 fi
 
 PDF=0 SCREEN="" TAG_SIZE="" COLS=6 ROWS=4 CAM_FREQ="" IMU_FREQ="" CAM_UNTIL=""
-CAMCHAIN="" IMU_YAML="" OUT="" TARGET=""
+CAMCHAIN="" IMU_YAML="" OUT="" TARGET="" DIST_CHECK=1
 need() { [[ $# -ge 2 && $2 != --* ]] || fail "$1 needs a value."; }
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -120,6 +122,7 @@ while [[ $# -gt 0 ]]; do
                      if [[ $2 == factory ]]; then CAMCHAIN=factory
                      else [[ -f $2 ]] || fail "--camchain: file not found: $2"; CAMCHAIN=$(abspath "$2"); fi
                      shift 2 ;;
+        --no-distortion-check) DIST_CHECK=0; shift ;;
         --imu-yaml)  need "$@"; [[ -f $2 ]] || fail "--imu-yaml: file not found: $2"; IMU_YAML=$(abspath "$2"); shift 2 ;;
         --target)    need "$@"; [[ -f $2 ]] || fail "--target: file not found: $2"; TARGET=$(abspath "$2"); shift 2 ;;
         --out)       need "$@"; mkdir -p "$2"; OUT="$(cd "$2" && pwd)"; shift 2 ;;
@@ -383,6 +386,29 @@ EOT
          --target target.yaml --cams $1 --imu imu.yaml --dont-show-report"
 }
 
+# The phone's distortion, checked on the grid: kept, dropped or fitted (distortion_check.py
+# rewrites camchain-in.yaml). Not fatal: if the check itself fails, the phone's values stay.
+check_distortion() {
+    local what="Checking the lens distortion on the grid" t0=$SECONDS
+    rm -f "$OUT/distortion-check.txt"
+    printf "  ${DIM}…${R} %s " "$what"
+    echo "==== $what" >> "$LOG"
+    if kalibr "python3 /tool/distortion_check.py /in camchain-in.yaml target.yaml distortion-check.txt" >> "$LOG" 2>&1 \
+            && [[ -s $OUT/distortion-check.txt ]]; then
+        printf "%s  ${GRN}✓${R} %s ${DIM}(%ss)${R}\n" "$BACK" "$what" "$((SECONDS - t0))"
+        local v; v=$(sed -n 's/^verdict: //p' "$OUT/distortion-check.txt")
+        grep -E '^(curvature|distortion fitted)' "$OUT/distortion-check.txt" | sed "s/^/      ${DIM}/; s/\$/${R}/"
+        case $v in
+            DISTORTED,*FITTED*) warn "Distortion: ${B}fitted${R} on the grid (the phone's values were missing or wrong)." ;;
+            DISTORTED*)         warn "Distortion: ${v#DISTORTED, }" ;;
+            *)                  info "Distortion: $v" ;;
+        esac
+    else
+        printf "%s  ${YEL}!${R} %s\n" "$BACK" "$what"
+        warn "The distortion check did not run; the phone's values are used unchecked. Details: $(pretty "$LOG")"
+    fi
+}
+
 case $MODE in
     cam)    calibrate_cam ;;
     imucam)
@@ -404,7 +430,9 @@ yaml.safe_dump({'cam0':{'camera_model':'pinhole','intrinsics':k,'distortion_mode
                 warn "assumed), not the phone's calibration: the camera-IMU result is less accurate."
                 warn "Better: calibrate this lens first ('$ME cam <recording> ...') and pass --camchain."
             fi
-            if tr '\n' ' ' < "$IN/cam0/sensor.yaml" | grep -q 'Distortion: *NONE'; then
+            if [[ $DIST_CHECK == 1 ]]; then
+                check_distortion
+            elif tr '\n' ' ' < "$IN/cam0/sensor.yaml" | grep -q 'Distortion: *NONE'; then
                 warn "The phone reports ${B}no distortion${R} for this lens; it is assumed undistorted."
             fi
         else
@@ -424,6 +452,7 @@ title "Results"
 title "Files"
 [[ $MODE == imucam ]] || ok "$MODE-camchain.yaml          lens calibration"
 [[ $MODE == cam ]]    || ok "$MODE-camchain-imucam.yaml   lens + camera-IMU (this is what SLAM needs)"
+[[ -f $OUT/distortion-check.txt ]] && ok "distortion-check.txt         how the lens distortion was checked"
 ls "$OUT"/*report*.pdf > /dev/null 2>&1 && ok "$(cd "$OUT" && ls *report*.pdf | tr '\n' ' ')  reports with plots"
 info "${DIM}in $(pretty "$OUT")   (full log: kalibr.log)${R}"
 echo
