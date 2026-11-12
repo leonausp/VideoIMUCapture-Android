@@ -44,7 +44,13 @@ tools/kalibr_calib/calibrate.sh imucam <recording> --tag-size 0.03 --camchain fa
 to this folder, a phone recording (`video_meta.pb3` + video), converted automatically with
 mid-exposure timestamps. `--camchain factory` uses those start values as the lens model: on phone
 recordings they are the phone's own per-frame focal length and factory distortion, which proved
-more reliable than Kalibr's lens calibration (see docs/07). Kalibr's output goes to `kalibr.log`;
+more reliable than Kalibr's lens calibration (see docs/07). Before Kalibr runs, the distortion is
+**checked on the grid** (`distortion_check.py`, under a minute): a flat grid seen through an
+undistorted lens is an exact homography, so whatever bending remains in views reaching the image
+corners is distortion. If the phone's values straighten the grid, or the image is already straight,
+they are kept; if the grid is bent and the phone gives no (or wrong) values, k1/k2 are fitted with
+the phone's focal length held fixed (`distortion-check.txt` says which; `--no-distortion-check`
+skips it). Kalibr's output goes to `kalibr.log`;
 the terminal shows the steps, a rated summary (time offset vs. half the rolling-shutter readout,
 rotation vs. the phone's axes, camera-IMU distance, reprojection error) and the result files:
 
@@ -61,7 +67,8 @@ what to do.
 
 `aprilgrid_png.py` draws the PNG and the PDF from Kalibr's own tag codes and layout on whole
 pixels, with the measuring instructions below the grid, and checks them with Kalibr's detector
-(`--check`). `summarize.py` writes the rated summary from Kalibr's result files.
+(`--check`). `summarize.py` writes the rated summary from Kalibr's result files; `distortion_check.py` runs
+the distortion check above (`python3 distortion_check.py <euroc> <camchain.yaml> <target.yaml> <report>`).
 
 ## Timestamps
 
